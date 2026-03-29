@@ -9,7 +9,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { Play, Pause, RotateCcw, Timer, ShieldOff, ShieldCheck } from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -25,17 +25,17 @@ import { GradientCard } from '@/components/ui/GradientCard';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
 
 const DURATIONS = [
-  { label: '5 min', value: 5, emoji: '⚡' },
-  { label: '25 min', value: 25, emoji: '🍅' },
-  { label: '50 min', value: 50, emoji: '🔥' },
+  { label: '5 min', value: 5, iconName: 'Zap' },
+  { label: '25 min', value: 25, iconName: 'Timer' },
+  { label: '50 min', value: 50, iconName: 'Flame' },
 ];
 
 const BLOCKED_APPS_MOCK = [
-  { appName: 'Instagram', icon: '📸', blocked: true },
-  { appName: 'Twitter/X', icon: '🐦', blocked: true },
-  { appName: 'YouTube', icon: '▶️', blocked: true },
-  { appName: 'TikTok', icon: '🎵', blocked: false },
-  { appName: 'Reddit', icon: '🤖', blocked: false },
+  { appName: 'Instagram', iconName: 'Camera', blocked: true },
+  { appName: 'Twitter/X', iconName: 'Twitter', blocked: true },
+  { appName: 'YouTube', iconName: 'Youtube', blocked: true },
+  { appName: 'TikTok', iconName: 'Music', blocked: false },
+  { appName: 'Reddit', iconName: 'Bot', blocked: false },
 ];
 
 function pad(n: number) {
@@ -175,7 +175,10 @@ export default function FocusScreen() {
         {/* Header */}
         <Animated.View entering={FadeInDown.duration(500)}>
           <View style={styles.header}>
-            <Text style={styles.title}>Focus Mode 🎯</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={styles.title}>Focus Mode</Text>
+              <Icon name="Target" size={24} color={Palette.tealDark} />
+            </View>
             <Text style={styles.subtitle}>
               {completed > 0
                 ? `${completed} session${completed > 1 ? 's' : ''} completed today 🏆`
@@ -198,7 +201,12 @@ export default function FocusScreen() {
                 onPress={() => handleDurationChange(d.value)}
                 disabled={running}
               >
-                <Text style={styles.durationEmoji}>{d.emoji}</Text>
+                <Icon
+                  name={d.iconName as IconName}
+                  size={22}
+                  color={selectedDuration === d.value ? Palette.tealDark : Palette.grey400}
+                  style={{ marginBottom: 4 }}
+                />
                 <Text
                   style={[
                     styles.durationLabel,
@@ -286,7 +294,7 @@ export default function FocusScreen() {
               style={[styles.startBtn, Shadow.lg]}
               onPress={handleStart}
             >
-              <Play size={20} color="#fff" strokeWidth={2.5} />
+              <Icon name="Play" size={20} color="#fff" strokeWidth={2.5} />
               <Text style={styles.startBtnText}>
                 {secondsLeft === 0 ? ' Restart' : '  Start Focus'}
               </Text>
@@ -296,7 +304,7 @@ export default function FocusScreen() {
               style={[styles.pauseBtn, Shadow.md]}
               onPress={handlePause}
             >
-              <Pause size={20} color="#fff" strokeWidth={2.5} />
+              <Icon name="Pause" size={20} color="#fff" strokeWidth={2.5} />
               <Text style={styles.pauseBtnText}>  Pause</Text>
             </TouchableOpacity>
           )}
@@ -304,7 +312,7 @@ export default function FocusScreen() {
             style={styles.resetBtn}
             onPress={handleReset}
           >
-            <RotateCcw size={20} color={Palette.grey600} strokeWidth={2} />
+            <Icon name="RotateCcw" size={20} color={Palette.grey600} strokeWidth={2} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -318,7 +326,7 @@ export default function FocusScreen() {
           <View style={[styles.blockedCard, Shadow.sm]}>
             {blockedApps.map((app, index) => (
               <View key={app.appName} style={styles.appRow}>
-                <Text style={styles.appIcon}>{app.icon}</Text>
+                <Icon name={app.iconName as IconName} size={22} color={Palette.grey600} style={{ marginRight: Spacing.md }} />
                 <Text style={styles.appName}>{app.appName}</Text>
                 <TouchableOpacity
                   style={[
@@ -328,9 +336,9 @@ export default function FocusScreen() {
                   onPress={() => toggleBlockApp(index)}
                 >
                   {app.blocked ? (
-                    <ShieldOff size={14} color="#C62828" strokeWidth={2} />
+                    <Icon name="ShieldOff" size={14} color="#C62828" strokeWidth={2} />
                   ) : (
-                    <ShieldCheck size={14} color="#2E7D32" strokeWidth={2} />
+                    <Icon name="ShieldCheck" size={14} color="#2E7D32" strokeWidth={2} />
                   )}
                   <Text
                     style={[
@@ -352,7 +360,10 @@ export default function FocusScreen() {
             colors={['#A8D5BA', '#C8E6C9']}
             style={{ marginTop: Spacing.md }}
           >
-            <Text style={styles.tipTitle}>💡 Focus Tips</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm }}>
+              <Icon name="Lightbulb" size={18} color={Palette.tealDark} />
+              <Text style={[styles.tipTitle, { marginBottom: 0 }]}>Focus Tips</Text>
+            </View>
             {[
               'Put your phone face-down during the session',
               'Use headphones with calm music or silence',
@@ -416,10 +427,6 @@ const styles = StyleSheet.create({
   },
   durationBtnDisabled: {
     opacity: 0.5,
-  },
-  durationEmoji: {
-    fontSize: 22,
-    marginBottom: 4,
   },
   durationLabel: {
     fontSize: Typography.size.sm,
@@ -542,10 +549,6 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F4F1',
-  },
-  appIcon: {
-    fontSize: 22,
-    marginRight: Spacing.md,
   },
   appName: {
     flex: 1,

@@ -1,18 +1,19 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Radius, Shadow, Spacing, Typography } from '@/constants/Theme';
+import { Icon, IconName } from '@/components/ui/Icon';
 
 interface EmptyStateProps {
-  icon?: string;
+  iconName?: IconName;
   title: string;
   subtitle?: string;
   style?: ViewStyle;
 }
 
-export function EmptyState({ icon = '🌿', title, subtitle, style }: EmptyStateProps) {
+export function EmptyState({ iconName = 'Box', title, subtitle, style }: EmptyStateProps) {
   return (
     <View style={[styles.container, Shadow.sm, style]}>
-      <Text style={styles.icon}>{icon}</Text>
+      <Icon name={iconName} size={48} color="#2D6A4F" style={{ marginBottom: Spacing.md }} />
       <Text style={styles.title}>{title}</Text>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
     </View>
@@ -27,10 +28,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FFF4',
     borderRadius: Radius.lg,
     marginVertical: Spacing.base,
-  },
-  icon: {
-    fontSize: 48,
-    marginBottom: Spacing.md,
   },
   title: {
     fontSize: Typography.size.md,

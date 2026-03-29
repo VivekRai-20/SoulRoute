@@ -1,11 +1,11 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { LucideIcon } from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import { Shadow, Radius, Spacing, Typography } from '@/constants/Theme';
 
 interface StatCardProps {
-  /** A Lucide icon component, e.g. Smartphone */
-  Icon?: LucideIcon;
+  /** A Lucide icon component name, e.g. "Smartphone" */
+  iconName?: IconName;
   /** Fallback emoji if no Icon component provided */
   emoji?: string;
   value: string;
@@ -16,7 +16,7 @@ interface StatCardProps {
 }
 
 export function StatCard({
-  Icon,
+  iconName,
   emoji,
   value,
   label,
@@ -27,8 +27,8 @@ export function StatCard({
   return (
     <View style={[styles.card, { backgroundColor: bgColor }, Shadow.sm, style]}>
       <View style={[styles.iconWrap, { backgroundColor: color + '18' }]}>
-        {Icon ? (
-          <Icon size={22} color={color} strokeWidth={2} />
+        {iconName ? (
+          <Icon name={iconName} size={22} color={color} strokeWidth={2} />
         ) : (
           <Text style={{ fontSize: 20 }}>{emoji ?? '📊'}</Text>
         )}

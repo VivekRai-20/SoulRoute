@@ -14,15 +14,7 @@ import Animated, {
   FadeInUp,
   SlideInRight,
 } from 'react-native-reanimated';
-import {
-  Smartphone,
-  Lock,
-  Bell,
-  Lightbulb,
-  RefreshCw,
-  Moon,
-  TrendingUp,
-} from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import { useWellbeing } from '@/context/WellbeingContext';
 import { FatigueScoreRing } from '@/components/ui/FatigueScoreRing';
 import { StatCard } from '@/components/ui/StatCard';
@@ -42,12 +34,12 @@ function formatMs(ms: number): string {
 }
 
 const MOODS = [
-  { emoji: '😫', label: 'Exhausted', value: 1 },
-  { emoji: '😞', label: 'Low', value: 2 },
-  { emoji: '😐', label: 'Neutral', value: 3 },
-  { emoji: '🙂', label: 'Good', value: 4 },
-  { emoji: '😊', label: 'Great', value: 5 },
-];
+  { icon: 'Frown', label: 'Exhausted', value: 1, color: '#E74C3C' },
+  { icon: 'Meh', label: 'Low', value: 2, color: '#F39C12' },
+  { icon: 'CircleKolar', label: 'Neutral', value: 3, color: '#3498DB' }, // CircleKolar doesn't exist, use 'Circle'
+  { icon: 'Smile', label: 'Good', value: 4, color: '#2ECC71' },
+  { icon: 'Laugh', label: 'Great', value: 5, color: '#27AE60' },
+] as const;
 
 export default function HomeDashboard() {
   const {
@@ -110,7 +102,7 @@ export default function HomeDashboard() {
           <Text style={styles.date}>{dateStr}</Text>
         </View>
         <TouchableOpacity style={styles.refreshBtn} onPress={onRefresh}>
-          <RefreshCw size={20} color={Palette.tealDark} strokeWidth={2.5} />
+          <Icon name="RefreshCw" size={20} color={Palette.tealDark} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
 
@@ -197,7 +189,7 @@ export default function HomeDashboard() {
                 </View>
                 {!isUsingMockData && (
                   <View style={styles.realDataBadge}>
-                    <TrendingUp size={11} color="#2E7D32" strokeWidth={2.5} />
+                    <Icon name="TrendingUp" size={11} color="#2E7D32" strokeWidth={2.5} />
                     <Text style={styles.realDataText}>Live data</Text>
                   </View>
                 )}
@@ -215,21 +207,21 @@ export default function HomeDashboard() {
           ) : (
             <View style={styles.statsRow}>
               <StatCard
-                Icon={Smartphone}
+                iconName="Smartphone"
                 value={formatMs(userStats?.totalScreenTimeMs ?? 0)}
                 label="Screen Time"
                 color={Palette.tealDark}
                 bgColor="#F0FFF4"
               />
               <StatCard
-                Icon={Lock}
+                iconName="Lock"
                 value={`${userStats?.unlockCount ?? 0}`}
                 label="Unlocks"
                 color="#E67E22"
                 bgColor="#FFF8F0"
               />
               <StatCard
-                Icon={Bell}
+                iconName="Bell"
                 value={`${totalNotifications}`}
                 label="Notifications"
                 color="#8E44AD"
@@ -244,7 +236,7 @@ export default function HomeDashboard() {
           <Text style={styles.sectionTitle}>Today's Insight</Text>
           <View style={[styles.insightCard, Shadow.sm]}>
             <View style={styles.insightIconWrap}>
-              <Lightbulb size={24} color={Palette.amber} strokeWidth={2} />
+              <Icon name="Lightbulb" size={24} color={Palette.amber} strokeWidth={2} />
             </View>
             <Text style={styles.insightText}>{todayInsight}</Text>
           </View>
@@ -269,7 +261,7 @@ export default function HomeDashboard() {
             </>
           ) : topApps.length === 0 ? (
             <EmptyState
-              icon="📭"
+              iconName="Inbox"
               title="No app usage data"
               subtitle="Grant Usage Access in Settings, then pull to refresh"
             />
@@ -286,7 +278,7 @@ export default function HomeDashboard() {
                       { backgroundColor: app.iconColor + '22' },
                     ]}
                   >
-                    <Smartphone size={18} color={app.iconColor} strokeWidth={2} />
+                    <Icon name="Smartphone" size={18} color={app.iconColor} strokeWidth={2} />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={styles.appName}>{app.appName}</Text>
@@ -332,7 +324,7 @@ export default function HomeDashboard() {
                   ]}
                   onPress={() => setSelectedMood(m.value)}
                 >
-                  <Text style={styles.moodEmoji}>{m.emoji}</Text>
+                  <Icon name={m.icon as IconName} size={26} color={m.color} style={{ marginBottom: 4 }} />
                   <Text
                     style={[
                       styles.moodLabel,
@@ -363,7 +355,7 @@ export default function HomeDashboard() {
         {(userStats?.nightUsageMs ?? 0) > 0 && (
           <Animated.View entering={FadeInUp.duration(500).delay(600)}>
             <View style={[styles.nightHint, Shadow.sm]}>
-              <Moon size={20} color="#7B1FA2" strokeWidth={2} />
+              <Icon name="Moon" size={20} color="#7B1FA2" strokeWidth={2} />
               <Text style={styles.nightText}>
                 You used your phone for{' '}
                 <Text style={{ fontWeight: '700', color: '#5C35A8' }}>

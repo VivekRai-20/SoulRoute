@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { User, Target, Bell, Shield, Info, Flame, Smartphone, Lock } from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import { useWellbeing } from '@/context/WellbeingContext';
 import { GradientCard } from '@/components/ui/GradientCard';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
@@ -32,17 +32,17 @@ const APP_VERSION = '1.0.0-beta';
 
 const PRIVACY_ITEMS = [
   {
-    icon: '🔒',
+    iconName: 'Lock',
     title: 'Data stays on device',
     desc: 'All your usage data is processed locally. Nothing is sent to external servers.',
   },
   {
-    icon: '🚫',
+    iconName: 'Ban',
     title: 'No advertising tracking',
     desc: 'SoulRoute never shares your data with advertisers or third-party analytics.',
   },
   {
-    icon: '🗑️',
+    iconName: 'Trash2',
     title: 'Delete your data',
     desc: 'Tap to wipe all locally stored usage history from this device.',
     action: true,
@@ -76,13 +76,14 @@ export default function ProfileScreen() {
           <GradientCard colors={['#A8D5BA', '#B3E5FC']} style={styles.profileCard}>
             <View style={styles.avatarRow}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarEmoji}>🌿</Text>
+                <Icon name="User" size={38} color={Palette.tealDark} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.userName}>{userName}</Text>
                 <Text style={styles.userSub}>SoulRoute Member</Text>
                 <View style={styles.streakBadge}>
-                  <Text style={styles.streakText}>🔥 7-day streak</Text>
+                  <Icon name="Flame" size={12} color="#E67E22" style={{ marginRight: 2 }} />
+                  <Text style={styles.streakText}>7-day streak</Text>
                 </View>
               </View>
             </View>
@@ -93,21 +94,21 @@ export default function ProfileScreen() {
                 {
                   label: 'Today',
                   value: formatMs(userStats?.totalScreenTimeMs ?? 0),
-                  icon: '📱',
+                  iconName: 'Smartphone',
                 },
                 {
                   label: 'Unlocks',
                   value: `${userStats?.unlockCount ?? 0}`,
-                  icon: '🔓',
+                  iconName: 'Unlock',
                 },
                 {
                   label: 'Goal',
                   value: formatMs(dailyGoalMs),
-                  icon: '🎯',
+                  iconName: 'Target',
                 },
               ].map((s) => (
                 <View key={s.label} style={styles.quickStat}>
-                  <Text style={{ fontSize: 16 }}>{s.icon}</Text>
+                  <Icon name={s.iconName as IconName} size={20} color={Palette.tealDark} />
                   <Text style={styles.quickStatVal}>{s.value}</Text>
                   <Text style={styles.quickStatLabel}>{s.label}</Text>
                 </View>
@@ -118,7 +119,10 @@ export default function ProfileScreen() {
 
         {/* Daily Goal */}
         <Animated.View entering={FadeInDown.duration(500).delay(100)}>
-          <Text style={styles.sectionTitle}>⏱️ Daily Screen Time Goal</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+            <Icon name="Timer" size={20} color={Palette.tealDark} />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Daily Screen Time Goal</Text>
+          </View>
           <View style={[styles.settingsCard, Shadow.sm]}>
             <Text style={styles.goalCurrent}>
               Current goal:{' '}
@@ -159,7 +163,10 @@ export default function ProfileScreen() {
 
         {/* Notification Settings */}
         <Animated.View entering={FadeInDown.duration(500).delay(200)}>
-          <Text style={styles.sectionTitle}>🔔 Notifications</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+            <Icon name="Bell" size={20} color={Palette.tealDark} />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Notifications</Text>
+          </View>
           <View style={[styles.settingsCard, Shadow.sm]}>
             {[
               {
@@ -202,7 +209,10 @@ export default function ProfileScreen() {
 
         {/* App Preferences */}
         <Animated.View entering={FadeInDown.duration(500).delay(300)}>
-          <Text style={styles.sectionTitle}>⚙️ Preferences</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+            <Icon name="Settings" size={20} color={Palette.tealDark} />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Preferences</Text>
+          </View>
           <View style={[styles.settingsCard, Shadow.sm]}>
             {[
               {
@@ -239,7 +249,10 @@ export default function ProfileScreen() {
 
         {/* Privacy */}
         <Animated.View entering={FadeInDown.duration(500).delay(400)}>
-          <Text style={styles.sectionTitle}>🔐 Privacy</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+            <Icon name="Shield" size={20} color={Palette.tealDark} />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Privacy</Text>
+          </View>
           <View style={[styles.settingsCard, Shadow.sm]}>
             {PRIVACY_ITEMS.map((item, i) => (
               <View key={item.title}>
@@ -263,7 +276,12 @@ export default function ProfileScreen() {
                       : undefined
                   }
                 >
-                  <Text style={{ fontSize: 22, marginRight: Spacing.md }}>{item.icon}</Text>
+                  <Icon
+                    name={item.iconName as IconName}
+                    size={22}
+                    color={item.action ? '#E53935' : Palette.grey800}
+                    style={{ marginRight: Spacing.md }}
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.settingLabel}>{item.title}</Text>
                     <Text style={styles.settingDesc}>{item.desc}</Text>
@@ -281,7 +299,10 @@ export default function ProfileScreen() {
         {/* About */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)}>
           <View style={[styles.aboutCard, Shadow.sm]}>
-            <Text style={styles.aboutLogo}>🌿 SoulRoute</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: Spacing.xs }}>
+              <Icon name="Leaf" size={24} color={Palette.tealDark} />
+              <Text style={[styles.aboutLogo, { marginBottom: 0 }]}>SoulRoute</Text>
+            </View>
             <Text style={styles.aboutTagline}>
               Understand your digital habits, improve your well-being.
             </Text>
@@ -336,9 +357,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...Shadow.md,
   },
-  avatarEmoji: {
-    fontSize: 38,
-  },
   userName: {
     fontSize: Typography.size.xl,
     fontWeight: Typography.weight.bold,
@@ -356,6 +374,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginTop: Spacing.xs,
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   streakText: {
     fontSize: Typography.size.xs,

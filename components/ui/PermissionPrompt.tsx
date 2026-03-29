@@ -6,7 +6,7 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from 'react-native';
-import { ShieldAlert, Database, Bell, ChevronRight, Info } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/Theme';
 
 interface PermissionPromptProps {
@@ -30,7 +30,7 @@ export function PermissionPrompt({
   if (compact) {
     return (
       <View style={[styles.compactBanner, style]}>
-        <Info size={16} color={Palette.amber} />
+        <Icon name="Info" size={16} color={Palette.amber} />
         <Text style={styles.compactText}>
           Using demo data.{' '}
           {showUsage && (
@@ -52,7 +52,7 @@ export function PermissionPrompt({
   return (
     <View style={[styles.container, Shadow.md, style]}>
       <View style={styles.headerRow}>
-        <ShieldAlert size={28} color={Palette.amber} />
+        <Icon name="ShieldAlert" size={28} color={Palette.amber} />
         <View style={{ flex: 1, marginLeft: Spacing.md }}>
           <Text style={styles.title}>Permissions Needed</Text>
           <Text style={styles.subtitle}>
@@ -66,7 +66,7 @@ export function PermissionPrompt({
       {showUsage && (
         <TouchableOpacity style={styles.permRow} onPress={onGrantUsage}>
           <View style={[styles.iconWrap, { backgroundColor: '#E8F5E9' }]}>
-            <Database size={20} color="#2E7D32" />
+            <Icon name="Database" size={20} color="#2E7D32" />
           </View>
           <View style={{ flex: 1, marginLeft: Spacing.md }}>
             <Text style={styles.permTitle}>Usage Access</Text>
@@ -74,7 +74,7 @@ export function PermissionPrompt({
               Allows SoulRoute to read screen time and app usage statistics
             </Text>
           </View>
-          <ChevronRight size={18} color={Palette.grey400} />
+          <Icon name="ChevronRight" size={18} color={Palette.grey400} />
         </TouchableOpacity>
       )}
 
@@ -83,7 +83,7 @@ export function PermissionPrompt({
       {showNotif && (
         <TouchableOpacity style={styles.permRow} onPress={onGrantNotification}>
           <View style={[styles.iconWrap, { backgroundColor: '#E3F2FD' }]}>
-            <Bell size={20} color="#1565C0" />
+            <Icon name="Bell" size={20} color="#1565C0" />
           </View>
           <View style={{ flex: 1, marginLeft: Spacing.md }}>
             <Text style={styles.permTitle}>Notification Access</Text>
@@ -91,12 +91,12 @@ export function PermissionPrompt({
               Allows SoulRoute to count notifications received per app
             </Text>
           </View>
-          <ChevronRight size={18} color={Palette.grey400} />
+          <Icon name="ChevronRight" size={18} color={Palette.grey400} />
         </TouchableOpacity>
       )}
 
       <View style={[styles.note, { marginTop: Spacing.md }]}>
-        <Info size={13} color={Palette.grey400} />
+        <Icon name="Info" size={13} color={Palette.grey400} />
         <Text style={styles.noteText}>
           These are special Android permissions — tapping will open System Settings where you enable them manually.
         </Text>

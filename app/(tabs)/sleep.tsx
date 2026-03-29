@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { BarChart } from 'react-native-chart-kit';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { Moon, BellOff, Clock, Star } from 'lucide-react-native';
+import { Icon, IconName } from '@/components/ui/Icon';
 import { useWellbeing } from '@/context/WellbeingContext';
 import { GradientCard } from '@/components/ui/GradientCard';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
@@ -21,11 +21,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.base * 2 - 8;
 
 const SLEEP_TIPS = [
-  { icon: '📵', text: 'Put your phone away 1 hour before bed' },
-  { icon: '💡', text: 'Use Night Light mode from 9 PM onwards' },
-  { icon: '🛁', text: 'Try a warm bath or light stretching' },
-  { icon: '📖', text: 'Replace scrolling with reading a book' },
-  { icon: '🎵', text: 'Play calming sleep soundscapes' },
+  { iconName: 'SmartphoneOff', text: 'Put your phone away 1 hour before bed' },
+  { iconName: 'Lightbulb', text: 'Use Night Light mode from 9 PM onwards' },
+  { iconName: 'Bath', text: 'Try a warm bath or light stretching' },
+  { iconName: 'BookOpen', text: 'Replace scrolling with reading a book' },
+  { iconName: 'Music', text: 'Play calming sleep soundscapes' },
 ];
 
 const QUALITY_LABELS = ['Poor', 'Fair', 'Okay', 'Good', 'Excellent'];
@@ -73,7 +73,7 @@ export default function SleepScreen() {
 
       {/* Header — night gradient */}
       <View style={styles.nightHeader}>
-        <Text style={styles.headerEmoji}>🌙</Text>
+        <Icon name="Moon" size={40} color="#FFFFFF" style={{ marginBottom: Spacing.xs }} />
         <Text style={styles.headerTitle}>Sleep & Night Usage</Text>
         <Text style={styles.headerSub}>
           {new Date().toLocaleDateString('en-IN', {
@@ -106,9 +106,11 @@ export default function SleepScreen() {
                 { backgroundColor: qualityColor + '1A' },
               ]}
             >
-              <Text style={{ fontSize: 48 }}>
-                {qualityIndex >= 3 ? '😴' : qualityIndex === 2 ? '😐' : '😫'}
-              </Text>
+              <Icon
+                name={qualityIndex >= 3 ? 'Smile' : qualityIndex === 2 ? 'Meh' : 'Frown'}
+                size={48}
+                color={qualityColor}
+              />
               {/* Mini quality dots */}
               <View style={styles.qualityDots}>
                 {QUALITY_LABELS.map((_, i) => (
@@ -132,7 +134,10 @@ export default function SleepScreen() {
         {/* Night Usage Chart */}
         <Animated.View entering={FadeInDown.duration(500).delay(150)}>
           <View style={[styles.chartCard, Shadow.md]}>
-            <Text style={styles.chartTitle}>📊 Night Usage Breakdown</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <Icon name="BarChart2" size={20} color="#4527A0" />
+              <Text style={[styles.chartTitle, { marginBottom: 0 }]}>Night Usage Breakdown</Text>
+            </View>
             <Text style={styles.chartSub}>Minutes used per hour (last night)</Text>
             <BarChart
               data={nightBarData}
@@ -158,8 +163,11 @@ export default function SleepScreen() {
 
         {/* Sleep Suggestions */}
         <Animated.View entering={FadeInDown.duration(500).delay(250)}>
-          <Text style={styles.sectionTitle}>💤 Sleep Suggestions</Text>
-          <View style={[styles.tipsCard, Shadow.sm]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Icon name="Moon" size={20} color="#4527A0" />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Sleep Suggestions</Text>
+          </View>
+          <View style={[styles.tipsCard, Shadow.sm, { marginTop: Spacing.sm }]}>
             {SLEEP_TIPS.map((tip, i) => (
               <View
                 key={i}
@@ -169,7 +177,7 @@ export default function SleepScreen() {
                 ]}
               >
                 <View style={styles.tipIconWrap}>
-                  <Text style={{ fontSize: 22 }}>{tip.icon}</Text>
+                  <Icon name={tip.iconName as IconName} size={22} color="#5E35B1" />
                 </View>
                 <Text style={styles.tipText}>{tip.text}</Text>
               </View>
@@ -179,8 +187,11 @@ export default function SleepScreen() {
 
         {/* Bedtime Settings */}
         <Animated.View entering={FadeInDown.duration(500).delay(350)}>
-          <Text style={styles.sectionTitle}>⏰ Bedtime Settings</Text>
-          <View style={[styles.settingsCard, Shadow.sm]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.md }}>
+            <Icon name="Clock" size={20} color="#4527A0" />
+            <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Bedtime Settings</Text>
+          </View>
+          <View style={[styles.settingsCard, Shadow.sm, { marginTop: Spacing.sm }]}>
             <View style={styles.settingRow}>
               <View>
                 <Text style={styles.settingLabel}>Bedtime Reminder</Text>
@@ -255,7 +266,10 @@ export default function SleepScreen() {
             colors={['#7986CB', '#9FA8DA']}
             style={{ marginTop: Spacing.md }}
           >
-            <Text style={styles.windDownTitle}>🌟 Tonight's Challenge</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.sm }}>
+              <Icon name="Star" size={20} color="#FFFFFF" />
+              <Text style={[styles.windDownTitle, { marginBottom: 0 }]}>Tonight's Challenge</Text>
+            </View>
             <Text style={styles.windDownText}>
               Try putting your phone in another room at{' '}
               <Text style={{ fontWeight: '800', color: '#FFF' }}>{bedtime}</Text>{' '}
@@ -287,10 +301,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-  },
-  headerEmoji: {
-    fontSize: 40,
-    marginBottom: Spacing.xs,
   },
   headerTitle: {
     fontSize: Typography.size.xl,

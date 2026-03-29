@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { Icon, IconName } from '@/components/ui/Icon';
 import { useWellbeing } from '@/context/WellbeingContext';
 import { SkeletonCard } from '@/components/ui/SkeletonLoader';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
@@ -69,10 +70,10 @@ export default function AnalyticsScreen() {
     ],
   };
 
-  const TABS: { key: TabKey; label: string; emoji: string }[] = [
-    { key: 'screentime', label: 'Screen Time', emoji: '📱' },
-    { key: 'apps', label: 'App Categories', emoji: '🗂️' },
-    { key: 'notifications', label: 'Notifications', emoji: '🔔' },
+  const TABS: { key: TabKey; label: string; iconName: IconName }[] = [
+    { key: 'screentime', label: 'Screen Time', iconName: 'Smartphone' },
+    { key: 'apps', label: 'App Categories', iconName: 'LayoutGrid' },
+    { key: 'notifications', label: 'Notifications', iconName: 'Bell' },
   ];
 
   return (
@@ -93,7 +94,12 @@ export default function AnalyticsScreen() {
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
             onPress={() => setActiveTab(tab.key)}
           >
-            <Text style={styles.tabEmoji}>{tab.emoji}</Text>
+            <Icon
+              name={tab.iconName}
+              size={18}
+              color={activeTab === tab.key ? '#FFFFFF' : Palette.grey400}
+              style={{ marginBottom: 4 }}
+            />
             <Text
               style={[
                 styles.tabLabel,
@@ -112,7 +118,10 @@ export default function AnalyticsScreen() {
           <>
             <Animated.View entering={FadeInDown.duration(500)}>
               <View style={[styles.chartCard, Shadow.md]}>
-                <Text style={styles.chartTitle}>📈 Screen Time Trend (hours/day)</Text>
+                <View style={styles.chartTitleRow}>
+                  <Icon name="TrendingUp" size={20} color={Palette.tealDark} />
+                  <Text style={styles.chartTitle}>Screen Time Trend (hours/day)</Text>
+                </View>
                 <LineChart
                   data={{
                     labels: trendLabels,
@@ -134,7 +143,10 @@ export default function AnalyticsScreen() {
 
               {/* Unlock trend */}
               <View style={[styles.chartCard, Shadow.md]}>
-                <Text style={styles.chartTitle}>🔓 Phone Unlocks per Day</Text>
+                <View style={styles.chartTitleRow}>
+                  <Icon name="Unlock" size={20} color="#FF9800" />
+                  <Text style={[styles.chartTitle, { color: '#FF9800' }]}>Phone Unlocks per Day</Text>
+                </View>
                 <LineChart
                   data={{
                     labels: trendLabels,
@@ -169,28 +181,28 @@ export default function AnalyticsScreen() {
                     value: `${(screenTimeHours.reduce((a, b) => a + b, 0) / 7).toFixed(1)}h`,
                     color: Palette.tealDark,
                     bg: '#F0FFF4',
-                    icon: '📊',
+                    iconName: 'BarChart2',
                   },
                   {
                     label: 'Peak Day',
                     value: `${Math.max(...screenTimeHours)}h`,
                     color: '#E67E22',
                     bg: '#FFF8F0',
-                    icon: '⚡',
+                    iconName: 'Zap',
                   },
                   {
                     label: 'Best Day',
                     value: `${Math.min(...screenTimeHours)}h`,
                     color: '#27AE60',
                     bg: '#F0FFF4',
-                    icon: '🌿',
+                    iconName: 'Leaf',
                   },
-                ].map((item) => (
+                ].map((item: any) => (
                   <View
                     key={item.label}
                     style={[styles.summaryCard, { backgroundColor: item.bg }, Shadow.sm]}
                   >
-                    <Text style={{ fontSize: 20 }}>{item.icon}</Text>
+                    <Icon name={item.iconName} size={24} color={item.color} />
                     <Text style={[styles.summaryVal, { color: item.color }]}>{item.value}</Text>
                     <Text style={styles.summaryLabel}>{item.label}</Text>
                   </View>
@@ -204,7 +216,10 @@ export default function AnalyticsScreen() {
         {activeTab === 'apps' && (
           <Animated.View entering={FadeInDown.duration(500)}>
             <View style={[styles.chartCard, Shadow.md]}>
-              <Text style={styles.chartTitle}>🗂️ App Usage by Category</Text>
+              <View style={styles.chartTitleRow}>
+                <Icon name="LayoutGrid" size={20} color={Palette.tealDark} />
+                <Text style={styles.chartTitle}>App Usage by Category</Text>
+              </View>
               <PieChart
                 data={pieData}
                 width={CHART_WIDTH}
@@ -250,7 +265,10 @@ export default function AnalyticsScreen() {
         {activeTab === 'notifications' && (
           <Animated.View entering={FadeInDown.duration(500)}>
             <View style={[styles.chartCard, Shadow.md]}>
-              <Text style={styles.chartTitle}>🔔 Notifications by App (Today)</Text>
+              <View style={styles.chartTitleRow}>
+                <Icon name="Bell" size={20} color={Palette.tealDark} />
+                <Text style={styles.chartTitle}>Notifications by App (Today)</Text>
+              </View>
               <BarChart
                 data={notifBarData}
                 width={CHART_WIDTH}
@@ -364,11 +382,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     overflow: 'hidden',
   },
+  chartTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
   chartTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
     color: Palette.tealDark,
-    marginBottom: Spacing.md,
   },
   chart: {
     borderRadius: Radius.md,

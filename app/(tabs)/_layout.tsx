@@ -2,11 +2,12 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, Text, View, StyleSheet } from 'react-native';
 import { Palette } from '@/constants/Theme';
+import { Icon, IconName } from '@/components/ui/Icon';
 
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
+function TabIcon({ name, focused }: { name: IconName; focused: boolean }) {
   return (
     <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <Text style={styles.emoji}>{emoji}</Text>
+      <Icon name={name} size={24} color={focused ? Palette.tealDark : Palette.grey400} />
     </View>
   );
 }
@@ -42,35 +43,35 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="Home" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="analytics"
         options={{
           title: 'Analytics',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="BarChart2" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="focus"
         options={{
           title: 'Focus',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🎯" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="Target" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="sleep"
         options={{
           title: 'Sleep',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🌙" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="Moon" focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ focused }) => <TabIcon name="User" focused={focused} />,
         }}
       />
       {/* Hide legacy explore tab */}
@@ -89,8 +90,5 @@ const styles = StyleSheet.create({
   },
   iconWrapActive: {
     backgroundColor: Palette.mintLight + '60',
-  },
-  emoji: {
-    fontSize: 20,
   },
 });
