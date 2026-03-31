@@ -18,17 +18,17 @@ import {
   getTotalScreenTime,
   getDeviceUnlocks,
   getNightUsage,
+  getNightUsageHourly,
   getNotificationCounts,
+  getWeeklyTrend,
+  getWeeklyNotificationStats,
   openUsageAccessSettings,
   openNotificationListenerSettings,
+  isNotificationServiceRunning,
+  getOverlayPermissionState,
+  openOverlaySettings as openOverlaySettingsSvc,
+  getAllApps,
 } from '@/services/deviceStats';
-import {
-  mockUserStats,
-  mockAppUsage,
-  mockNotifications,
-  mockWeeklyTrend,
-  mockCategoryBreakdown,
-} from '@/data/mockData';
 
 // ─── Category classifier ──────────────────────────────────────────────────────
 
@@ -145,6 +145,7 @@ function computeFatigueScore(
 export interface PermissionState {
   usageAccess: boolean;
   notificationAccess: boolean;
+  overlayAccess: boolean;
   checked: boolean; // true once we've done the initial check
 }
 
@@ -166,7 +167,10 @@ export interface DeviceStatsReturn {
   permissions: PermissionState;
   openUsageSettings: () => void;
   openNotificationSettings: () => void;
+  openOverlaySettings: () => void;
+  isNotificationServiceActive: boolean;
   refresh: () => Promise<void>;
+  allApps: { packageName: string; appName: string }[];
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -175,27 +179,33 @@ export function useDeviceStats(): DeviceStatsReturn {
   const [permissions, setPermissions] = useState<PermissionState>({
     usageAccess: false,
     notificationAccess: false,
+    overlayAccess: false,
     checked: false,
   });
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [apps, setApps] = useState<AppUsage[]>([]);
   const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
+  const [weeklyTrend, setWeeklyTrend] = useState<WeeklyTrend[]>([]);
+  const [nightUsage, setNightUsage] = useState<{ hour: string; minutes: number }[]>([]);
+  const [allApps, setAllApps] = useState<{ packageName: string; appName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isUsingMockData, setIsUsingMockData] = useState(true);
+  const [isServiceActive, setIsServiceActive] = useState(false);
 
   // Re-check permissions when the app returns from background
   // (user may have just granted access in Settings)
   const appStateRef = useRef(AppState.currentState);
 
   const checkPermissions = useCallback(async () => {
-    const [usageAccess, notificationAccess] = await Promise.all([
+    const [usageAccess, notificationAccess, overlayAccess] = await Promise.all([
       hasUsagePermission(),
       hasNotificationPermission(),
+      getOverlayPermissionState(),
     ]);
-    setPermissions({ usageAccess, notificationAccess, checked: true });
-    return { usageAccess, notificationAccess };
+    setPermissions({ usageAccess, notificationAccess, overlayAccess, checked: true });
+    return { usageAccess, notificationAccess, overlayAccess };
   }, []);
 
   const fetchRealData = useCallback(async () => {
@@ -208,14 +218,26 @@ export function useDeviceStats(): DeviceStatsReturn {
         unlockCount,
         nightMs,
         rawNotifs,
+        rawWeeklyTrend,
+        rawWeeklyNotifs,
+        rawIsServiceActive,
+        rawNightHourly,
+        allInstalledApps,
       ] = await Promise.all([
         getAppUsageStats(),
         getTotalScreenTime(),
         getDeviceUnlocks(),
         getNightUsage(),
         getNotificationCounts().catch(() => []),
+        getWeeklyTrend().catch(() => []),
+        getWeeklyNotificationStats().catch(() => []),
+        isNotificationServiceRunning().catch(() => false),
+        getNightUsageHourly().catch(() => []),
+        getAllApps().catch(() => []),
       ]);
 
+      console.log(`[SoulRoute] Notifications fetched: ${rawNotifs.length}, All Apps: ${allInstalledApps.length}`);
+      
       // ─ Transform apps
       const totalMs = rawApps.reduce((s, a) => s + a.totalTimeInForeground, 0);
       const mappedApps: AppUsage[] = rawApps.map((a) => {
@@ -234,8 +256,8 @@ export function useDeviceStats(): DeviceStatsReturn {
       const breakdown = buildCategoryBreakdown(mappedApps);
 
       // ─ Notifications
-      const totalNotifCount = rawNotifs.reduce((s, n) => s + n.count, 0);
-      const mappedNotifs: NotificationData[] = rawNotifs.slice(0, 10).map((n) => ({
+      const totalNotifCount = rawNotifs.reduce((s: number, n: any) => s + n.count, 0);
+      const mappedNotifs: NotificationData[] = rawNotifs.slice(0, 10).map((n: any) => ({
         appName: n.appName ?? n.packageName.split('.').pop() ?? n.packageName,
         packageName: n.packageName,
         count: n.count,
@@ -252,26 +274,6 @@ export function useDeviceStats(): DeviceStatsReturn {
         3 * 3600000 // default goal
       );
 
-      // ─ Night usage breakdown by hour
-      const nightUsageHours = [
-        { hour: '10pm', minutes: 0 },
-        { hour: '11pm', minutes: 0 },
-        { hour: '12am', minutes: 0 },
-        { hour: '1am', minutes: 0 },
-        { hour: '2am', minutes: 0 },
-        { hour: '3am', minutes: 0 },
-      ];
-      // Distribute nightMs proportionally (simplified — real per-hour impl needs
-      // granular UsageEvents queries which can be added in a future iteration)
-      if (nightMs > 0) {
-        nightUsageHours[0].minutes = Math.round((nightMs * 0.45) / 60000);
-        nightUsageHours[1].minutes = Math.round((nightMs * 0.30) / 60000);
-        nightUsageHours[2].minutes = Math.round((nightMs * 0.15) / 60000);
-        nightUsageHours[3].minutes = Math.round((nightMs * 0.07) / 60000);
-        nightUsageHours[4].minutes = Math.round((nightMs * 0.02) / 60000);
-        nightUsageHours[5].minutes = Math.round((nightMs * 0.01) / 60000);
-      }
-
       const stats: UserStats = {
         date: new Date().toISOString(),
         totalScreenTimeMs,
@@ -282,10 +284,25 @@ export function useDeviceStats(): DeviceStatsReturn {
         fatigueScore,
       };
 
+      // ─ Build merged weekly trend
+      const mergedTrend: WeeklyTrend[] = (rawWeeklyTrend as any[]).map((t: any) => {
+        const notifDay = (rawWeeklyNotifs as any[]).find((n: any) => n.date === t.date);
+        return {
+          date: t.date,
+          screenTimeMs: t.screenTimeMs,
+          unlockCount: t.unlockCount,
+          notificationCount: notifDay ? notifDay.count : 0,
+        };
+      });
+
       setApps(mappedApps);
       setCategoryBreakdown(breakdown);
       setNotifications(mappedNotifs);
+      setWeeklyTrend(mergedTrend);
+      setNightUsage(rawNightHourly);
       setUserStats(stats);
+      setAllApps(allInstalledApps);
+      setIsServiceActive(rawIsServiceActive);
       setIsUsingMockData(false);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to fetch device stats');
@@ -297,10 +314,13 @@ export function useDeviceStats(): DeviceStatsReturn {
   }, []);
 
   const loadMockData = useCallback(() => {
-    setApps(mockAppUsage);
-    setCategoryBreakdown(mockCategoryBreakdown);
-    setNotifications(mockNotifications);
-    setUserStats(mockUserStats);
+    // We no longer use mock data as fallbacks
+    setApps([]);
+    setCategoryBreakdown([]);
+    setNotifications([]);
+    setWeeklyTrend([]);
+    setNightUsage([]);
+    setUserStats(null);
     setIsUsingMockData(true);
     setLoading(false);
   }, []);
@@ -326,16 +346,14 @@ export function useDeviceStats(): DeviceStatsReturn {
         appStateRef.current.match(/inactive|background/) &&
         nextState === 'active'
       ) {
-        checkPermissions().then((perms) => {
-          if (perms.usageAccess && isUsingMockData) {
-            fetchRealData();
-          }
-        });
+        // Always refresh on foreground — the user may have just granted
+        // Usage Access or Notification Access in Settings.
+        refresh();
       }
       appStateRef.current = nextState;
     });
     return () => sub.remove();
-  }, [checkPermissions, fetchRealData, isUsingMockData]);
+  }, [refresh]);
 
   const totalNotifications = notifications.reduce((s, n) => s + n.count, 0);
 
@@ -345,23 +363,17 @@ export function useDeviceStats(): DeviceStatsReturn {
     categoryBreakdown,
     notifications,
     totalNotifications,
-    weeklyTrend: mockWeeklyTrend, // TODO: build 7-day historical trend from UsageStats
-    nightUsage: userStats
-      ? [
-          { hour: '10pm', minutes: Math.round((userStats.nightUsageMs * 0.45) / 60000) },
-          { hour: '11pm', minutes: Math.round((userStats.nightUsageMs * 0.30) / 60000) },
-          { hour: '12am', minutes: Math.round((userStats.nightUsageMs * 0.15) / 60000) },
-          { hour: '1am', minutes: Math.round((userStats.nightUsageMs * 0.07) / 60000) },
-          { hour: '2am', minutes: Math.round((userStats.nightUsageMs * 0.02) / 60000) },
-          { hour: '3am', minutes: Math.round((userStats.nightUsageMs * 0.01) / 60000) },
-        ]
-      : [],
+    weeklyTrend,
+    nightUsage,
     loading,
     error,
     isUsingMockData,
     permissions,
     openUsageSettings: openUsageAccessSettings,
     openNotificationSettings: openNotificationListenerSettings,
+    openOverlaySettings: openOverlaySettingsSvc,
+    isNotificationServiceActive: isServiceActive,
     refresh,
+    allApps,
   };
 }

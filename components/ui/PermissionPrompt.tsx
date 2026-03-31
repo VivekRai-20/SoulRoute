@@ -10,9 +10,10 @@ import { Icon } from '@/components/ui/Icon';
 import { Palette, Radius, Shadow, Spacing, Typography } from '@/constants/Theme';
 
 interface PermissionPromptProps {
-  type: 'usage' | 'notification' | 'both';
+  type: 'usage' | 'notification' | 'overlay' | 'all';
   onGrantUsage: () => void;
   onGrantNotification: () => void;
+  onGrantOverlay: () => void;
   style?: ViewStyle;
   compact?: boolean;
 }
@@ -21,30 +22,38 @@ export function PermissionPrompt({
   type,
   onGrantUsage,
   onGrantNotification,
+  onGrantOverlay,
   style,
   compact = false,
 }: PermissionPromptProps) {
-  const showUsage = type === 'usage' || type === 'both';
-  const showNotif = type === 'notification' || type === 'both';
+  const showUsage = type === 'usage' || type === 'all';
+  const showNotif = type === 'notification' || type === 'all';
+  const showOverlay = type === 'overlay' || type === 'all';
 
   if (compact) {
     return (
       <View style={[styles.compactBanner, style]}>
         <Icon name="Info" size={16} color={Palette.amber} />
-        <Text style={styles.compactText}>
-          Using demo data.{' '}
-          {showUsage && (
-            <Text style={styles.compactLink} onPress={onGrantUsage}>
-              Grant Usage Access
-            </Text>
-          )}
-          {showUsage && showNotif && ' · '}
-          {showNotif && (
-            <Text style={styles.compactLink} onPress={onGrantNotification}>
-              Grant Notifications
-            </Text>
-          )}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.compactText}>Using demo data. Grant permissions for real stats:</Text>
+          <View style={styles.compactLinks}>
+            {showUsage && (
+              <Text style={styles.compactLink} onPress={onGrantUsage}>
+                Usage
+              </Text>
+            )}
+            {showNotif && (
+              <Text style={styles.compactLink} onPress={onGrantNotification}>
+                Notifications
+              </Text>
+            )}
+            {showOverlay && (
+              <Text style={styles.compactLink} onPress={onGrantOverlay}>
+                Overlay
+              </Text>
+            )}
+          </View>
+        </View>
       </View>
     );
   }
@@ -56,7 +65,7 @@ export function PermissionPrompt({
         <View style={{ flex: 1, marginLeft: Spacing.md }}>
           <Text style={styles.title}>Permissions Needed</Text>
           <Text style={styles.subtitle}>
-            Grant access to see your real device data instead of demo data
+            Grant access to enable all wellbeing features and see real data
           </Text>
         </View>
       </View>
@@ -71,14 +80,14 @@ export function PermissionPrompt({
           <View style={{ flex: 1, marginLeft: Spacing.md }}>
             <Text style={styles.permTitle}>Usage Access</Text>
             <Text style={styles.permDesc}>
-              Allows SoulRoute to read screen time and app usage statistics
+              Required for screen time and app usage statistics
             </Text>
           </View>
           <Icon name="ChevronRight" size={18} color={Palette.grey400} />
         </TouchableOpacity>
       )}
 
-      {showUsage && showNotif && <View style={styles.divider} />}
+      {showUsage && (showNotif || showOverlay) && <View style={styles.divider} />}
 
       {showNotif && (
         <TouchableOpacity style={styles.permRow} onPress={onGrantNotification}>
@@ -88,7 +97,24 @@ export function PermissionPrompt({
           <View style={{ flex: 1, marginLeft: Spacing.md }}>
             <Text style={styles.permTitle}>Notification Access</Text>
             <Text style={styles.permDesc}>
-              Allows SoulRoute to count notifications received per app
+              Required to track and limit app notifications
+            </Text>
+          </View>
+          <Icon name="ChevronRight" size={18} color={Palette.grey400} />
+        </TouchableOpacity>
+      )}
+
+      {showNotif && showOverlay && <View style={styles.divider} />}
+
+      {showOverlay && (
+        <TouchableOpacity style={styles.permRow} onPress={onGrantOverlay}>
+          <View style={[styles.iconWrap, { backgroundColor: '#FFF3E0' }]}>
+            <Icon name="Layers" size={20} color="#E65100" />
+          </View>
+          <View style={{ flex: 1, marginLeft: Spacing.md }}>
+            <Text style={styles.permTitle}>Display Over Apps</Text>
+            <Text style={styles.permDesc}>
+              Required for the Focus Mode app blocker to work
             </Text>
           </View>
           <Icon name="ChevronRight" size={18} color={Palette.grey400} />
@@ -98,7 +124,7 @@ export function PermissionPrompt({
       <View style={[styles.note, { marginTop: Spacing.md }]}>
         <Icon name="Info" size={13} color={Palette.grey400} />
         <Text style={styles.noteText}>
-          These are special Android permissions — tapping will open System Settings where you enable them manually.
+          Tapping will open System Settings where you enable them manually.
         </Text>
       </View>
     </View>
@@ -185,10 +211,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   compactText: {
-    flex: 1,
     fontSize: Typography.size.xs,
     color: '#5D4037',
     lineHeight: 17,
+    marginBottom: 4,
+  },
+  compactLinks: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   compactLink: {
     color: Palette.tealDark,

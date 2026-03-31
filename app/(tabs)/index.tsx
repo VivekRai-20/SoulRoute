@@ -36,7 +36,7 @@ function formatMs(ms: number): string {
 const MOODS = [
   { icon: 'Frown', label: 'Exhausted', value: 1, color: '#E74C3C' },
   { icon: 'Meh', label: 'Low', value: 2, color: '#F39C12' },
-  { icon: 'CircleKolar', label: 'Neutral', value: 3, color: '#3498DB' }, // CircleKolar doesn't exist, use 'Circle'
+  { icon: 'Circle', label: 'Neutral', value: 3, color: '#3498DB' },
   { icon: 'Smile', label: 'Good', value: 4, color: '#2ECC71' },
   { icon: 'Laugh', label: 'Great', value: 5, color: '#27AE60' },
 ] as const;
@@ -53,6 +53,7 @@ export default function HomeDashboard() {
     isUsingMockData,
     openUsageSettings,
     openNotificationSettings,
+    openOverlaySettings,
   } = useWellbeing();
 
   const [selectedMood, setSelectedMood] = React.useState<number | null>(null);
@@ -85,7 +86,16 @@ export default function HomeDashboard() {
   // Permission state
   const needsUsage = permissions.checked && !permissions.usageAccess;
   const needsNotif = permissions.checked && !permissions.notificationAccess;
-  const needsAny = needsUsage || needsNotif;
+  const needsOverlay = permissions.checked && !permissions.overlayAccess;
+  const needsAny = needsUsage || needsNotif || needsOverlay;
+
+  const getPermissionType = (): 'usage' | 'notification' | 'overlay' | 'all' => {
+    if (needsUsage && needsNotif && needsOverlay) return 'all';
+    if (needsUsage) return 'usage';
+    if (needsNotif) return 'notification';
+    if (needsOverlay) return 'overlay';
+    return 'all'; // Fallback
+  };
 
   return (
     <View style={styles.root}>
@@ -122,9 +132,10 @@ export default function HomeDashboard() {
         {needsAny && permissions.checked && (
           <Animated.View entering={FadeInDown.duration(400)}>
             <PermissionPrompt
-              type={needsUsage && needsNotif ? 'both' : needsUsage ? 'usage' : 'notification'}
+              type={getPermissionType()}
               onGrantUsage={openUsageSettings}
               onGrantNotification={openNotificationSettings}
+              onGrantOverlay={openOverlaySettings}
             />
           </Animated.View>
         )}
@@ -133,9 +144,10 @@ export default function HomeDashboard() {
         {isUsingMockData && permissions.checked && !needsAny && (
           <Animated.View entering={FadeInDown.duration(400)}>
             <PermissionPrompt
-              type="both"
+              type="all"
               onGrantUsage={openUsageSettings}
               onGrantNotification={openNotificationSettings}
+              onGrantOverlay={openOverlaySettings}
               compact
             />
           </Animated.View>

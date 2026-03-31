@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { NativeModules } from 'react-native';
 import type { AppUsage, CategoryBreakdown } from '@/types';
-import { mockAppUsage, mockCategoryBreakdown } from '@/data/mockData';
 
 const { DigitalWellbeing } = NativeModules;
 
@@ -19,11 +18,9 @@ export interface UseAppUsageReturn {
 }
 
 export function useAppUsage(): UseAppUsageReturn {
-  const [apps, setApps] = useState<AppUsage[]>(mockAppUsage);
-  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>(mockCategoryBreakdown);
-  const [totalScreenTimeMs, setTotal] = useState(
-    mockAppUsage.reduce((acc, a) => acc + a.totalTimeInForeground, 0)
-  );
+  const [apps, setApps] = useState<AppUsage[]>([]);
+  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
+  const [totalScreenTimeMs, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,17 +47,16 @@ export function useAppUsage(): UseAppUsageReturn {
 
         setApps(mapped);
         setTotal(total);
-        // Keep mock category breakdown when using native (not enough category info)
-        setCategoryBreakdown(mockCategoryBreakdown);
+        setCategoryBreakdown([]); // Central hook handles categorization
       } else {
-        setApps(mockAppUsage);
-        setCategoryBreakdown(mockCategoryBreakdown);
-        setTotal(mockAppUsage.reduce((acc, a) => acc + a.totalTimeInForeground, 0));
+        setApps([]);
+        setCategoryBreakdown([]);
+        setTotal(0);
       }
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load app usage');
-      setApps(mockAppUsage);
-      setCategoryBreakdown(mockCategoryBreakdown);
+      setApps([]);
+      setCategoryBreakdown([]);
     } finally {
       setLoading(false);
     }

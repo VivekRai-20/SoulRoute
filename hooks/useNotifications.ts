@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import type { NotificationData } from '@/types';
-import { mockNotifications } from '@/data/mockData';
 
 export interface UseNotificationsReturn {
   notifications: NotificationData[];
@@ -12,7 +11,7 @@ export interface UseNotificationsReturn {
 }
 
 export function useNotifications(): UseNotificationsReturn {
-  const [notifications, setNotifications] = useState<NotificationData[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,13 +22,12 @@ export function useNotifications(): UseNotificationsReturn {
     setLoading(true);
     setError(null);
     try {
-      // Native notification listener integration would go here
-      // For now, use mock data — ready for future native bridge
-      await new Promise((r) => setTimeout(r, 300)); // simulate async
-      setNotifications(mockNotifications);
+      // Logic for real notification stats will be handled by the central useDeviceStats hook
+      // This hook can be refactored to consume context or remain empty/placeholder
+      setNotifications([]);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load notifications');
-      setNotifications(mockNotifications);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }

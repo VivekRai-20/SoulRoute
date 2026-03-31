@@ -24,6 +24,17 @@ export interface RawNotifStat {
   count: number;
 }
 
+export interface WeeklyTrendData {
+  date: string;
+  screenTimeMs: number;
+  unlockCount: number;
+}
+
+export interface WeeklyNotifData {
+  date: string;
+  count: number;
+}
+
 // ─── Guards ───────────────────────────────────────────────────────────────────
 
 function isAndroid() {
@@ -118,6 +129,62 @@ export async function getNightUsage(): Promise<number> {
 }
 
 /**
+ * Returns a real per-hour breakdown of user apps usage from 10 PM to 6 AM.
+ */
+export async function getNightUsageHourly(): Promise<{ hour: string; minutes: number }[]> {
+  if (!isModuleAvailable()) return [];
+  try {
+    return await DigitalWellbeing.getNightUsageHourly();
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Returns the app's icon as a Base64 string.
+ */
+export async function getAppLogo(packageName: string): Promise<string> {
+  if (!isModuleAvailable()) return '';
+  try {
+    return await DigitalWellbeing.getAppIcon(packageName);
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Saves the list of packages to block during Focus sessions.
+ */
+export async function saveBlockedApps(packages: string[]): Promise<boolean> {
+  if (!isModuleAvailable()) return false;
+  return await DigitalWellbeing.setBlockedApps(packages);
+}
+
+/**
+ * Returns a list of all user-installed applications (package + name).
+ */
+export async function getAllApps(): Promise<{ packageName: string; appName: string }[]> {
+  if (!isModuleAvailable()) return [];
+  return await DigitalWellbeing.getAllApps();
+}
+
+/**
+ * Starts the foreground blocking service.
+ */
+export async function startFocusBlocking(): Promise<boolean> {
+  if (!isModuleAvailable()) return false;
+  return await DigitalWellbeing.startBlockingService();
+}
+
+/**
+ * Stops the foreground blocking service.
+ */
+export async function stopFocusBlocking(): Promise<boolean> {
+  if (!isModuleAvailable()) return false;
+  return await DigitalWellbeing.stopBlockingService();
+}
+
+/**
  * Returns notification counts per app since the listener service started.
  * Sorted by count descending.
  */
@@ -133,6 +200,50 @@ export async function getNotificationCounts(): Promise<RawNotifStat[]> {
 export async function clearNotificationCounts(): Promise<void> {
   if (!isModuleAvailable()) return;
   await DigitalWellbeing.clearNotificationCounts();
+}
+
+/**
+ * Returns screen time and unlock counts for the last 7 days.
+ */
+export async function getWeeklyTrend(): Promise<WeeklyTrendData[]> {
+  if (!isModuleAvailable()) throw new Error('Module not available');
+  return await DigitalWellbeing.getWeeklyTrend();
+}
+
+/**
+ * Returns total notification counts for the last 7 days.
+ */
+export async function getWeeklyNotificationStats(): Promise<WeeklyNotifData[]> {
+  if (!isModuleAvailable()) throw new Error('Module not available');
+  return await DigitalWellbeing.getWeeklyNotificationStats();
+}
+
+/**
+ * Returns true if the SoulRouteNotificationService is currently bound and active.
+ */
+export async function isNotificationServiceRunning(): Promise<boolean> {
+  if (!isModuleAvailable()) return false;
+  try {
+    return await DigitalWellbeing.isNotificationServiceRunning();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns true if the user has granted 'Display over other apps' permission.
+ */
+export async function getOverlayPermissionState(): Promise<boolean> {
+  if (!isModuleAvailable()) return true;
+  return await DigitalWellbeing.getOverlayPermissionState();
+}
+
+/**
+ * Opens Android settings for 'Display over other apps'.
+ */
+export function openOverlaySettings(): void {
+  if (!isModuleAvailable()) return;
+  DigitalWellbeing.openOverlaySettings();
 }
 
 // ─── Expo Go guard ────────────────────────────────────────────────────────────

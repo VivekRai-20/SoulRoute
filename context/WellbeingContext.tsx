@@ -1,7 +1,6 @@
-import React, { createContext, useContext, useCallback, useState } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import type { UserStats, AppUsage, NotificationData, CategoryBreakdown, WeeklyTrend } from '@/types';
 import { useDeviceStats, type PermissionState } from '@/hooks/useDeviceStats';
-import { mockWeeklyTrend, mockInsights } from '@/data/mockData';
 
 interface WellbeingContextValue {
   // User stats (real or mock)
@@ -23,6 +22,8 @@ interface WellbeingContextValue {
   permissions: PermissionState;
   openUsageSettings: () => void;
   openNotificationSettings: () => void;
+  openOverlaySettings: () => void;
+  isNotificationServiceActive: boolean;
 
   // Static enriched data
   todayInsight: string;
@@ -37,9 +38,20 @@ interface WellbeingContextValue {
 
   // Refresh everything
   refreshAll: () => Promise<void>;
+  allApps: { packageName: string; appName: string }[];
 }
 
 const WellbeingContext = createContext<WellbeingContextValue | null>(null);
+
+const INSIGHTS = [
+  "Monitor your screen time to improve focus.",
+  "Taking short breaks can boost productivity.",
+  "Consistent sleep schedules improve wellbeing.",
+  "Reducing evening phone use helps you sleep better.",
+  "Focus mode can help you enter a flow state.",
+  "Small changes in digital habits lead to big results.",
+  "Review your weekly trend to see your progress."
+];
 
 export function WellbeingProvider({ children }: { children: React.ReactNode }) {
   const deviceStats = useDeviceStats();
@@ -48,7 +60,7 @@ export function WellbeingProvider({ children }: { children: React.ReactNode }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [focusMode, setFocusMode] = useState(false);
 
-  const todayInsight = mockInsights[new Date().getDay() % mockInsights.length];
+  const todayInsight = INSIGHTS[new Date().getDay() % INSIGHTS.length];
 
   const value: WellbeingContextValue = {
     userStats: deviceStats.userStats,
@@ -63,10 +75,12 @@ export function WellbeingProvider({ children }: { children: React.ReactNode }) {
     error: deviceStats.error,
     globalLoading: deviceStats.loading,
     isUsingMockData: deviceStats.isUsingMockData,
+    isNotificationServiceActive: deviceStats.isNotificationServiceActive,
 
     permissions: deviceStats.permissions,
     openUsageSettings: deviceStats.openUsageSettings,
     openNotificationSettings: deviceStats.openNotificationSettings,
+    openOverlaySettings: deviceStats.openOverlaySettings,
 
     todayInsight,
 
@@ -78,6 +92,7 @@ export function WellbeingProvider({ children }: { children: React.ReactNode }) {
     setFocusMode,
 
     refreshAll: deviceStats.refresh,
+    allApps: deviceStats.allApps,
   };
 
   return (

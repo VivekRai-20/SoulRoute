@@ -1,11 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:tools="http://schemas.android.com/tools">
   <uses-permission android:name="android.permission.INTERNET"/>
-  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
   <uses-permission android:name="android.permission.VIBRATE"/>
-  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
-  <!-- Required for UsageStatsManager — user must grant via Settings > Usage Access -->
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:node="replace"/>
   <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
 
   <queries>
@@ -35,11 +34,6 @@
       </intent-filter>
     </activity>
 
-    <!--
-      SoulRouteNotificationService
-      User must grant "Notification Access" manually in:
-      Settings > Apps & Notifications > Special App Access > Notification Access
-    -->
     <service
       android:name=".SoulRouteNotificationService"
       android:label="SoulRoute Notification Access"
@@ -48,6 +42,13 @@
       <intent-filter>
         <action android:name="android.service.notification.NotificationListenerService"/>
       </intent-filter>
+    </service>
+
+    <service
+      android:name=".SoulRouteBlockingService"
+      android:label="SoulRoute App Blocker"
+      android:foregroundServiceType="specialUse"
+      android:exported="false">
     </service>
 
   </application>

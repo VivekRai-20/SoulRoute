@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import { NativeModules } from 'react-native';
 import type { UserStats } from '@/types';
-import { mockUserStats } from '@/data/mockData';
 
 const { DigitalWellbeing } = NativeModules;
 
@@ -13,7 +12,7 @@ export interface UseScreenUsageReturn {
 }
 
 export function useScreenUsage(): UseScreenUsageReturn {
-  const [stats, setStats] = useState<UserStats | null>(mockUserStats);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,18 +27,26 @@ export function useScreenUsage(): UseScreenUsageReturn {
           0
         );
         // Build a basic UserStats from native data
-        setStats({
-          ...mockUserStats,
+        const newStats: UserStats = {
           date: new Date().toISOString(),
           totalScreenTimeMs: total,
-        });
+          unlockCount: 0,
+          notificationCount: 0,
+          nightUsageMs: 0,
+          dailyGoalMs: 3 * 3600000,
+          fatigueScore: {
+              score: 0,
+              level: 'low',
+              breakdown: { screenTimeFactor: 0, unlockFactor: 0, notificationFactor: 0, nightUsageFactor: 0 }
+          }
+        };
+        setStats(newStats);
       } else {
-        // fallback to mock data
-        setStats(mockUserStats);
+        setStats(null);
       }
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load usage stats');
-      setStats(mockUserStats); // safe fallback
+      setStats(null);
     } finally {
       setLoading(false);
     }

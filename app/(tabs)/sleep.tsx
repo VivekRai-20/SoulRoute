@@ -20,8 +20,16 @@ import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme'
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - Spacing.base * 2 - 8;
 
+function formatMs(ms: number): string {
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 const SLEEP_TIPS = [
-  { iconName: 'SmartphoneOff', text: 'Put your phone away 1 hour before bed' },
+  { iconName: 'Smartphone', text: 'Put your phone away 1 hour before bed' },
   { iconName: 'Lightbulb', text: 'Use Night Light mode from 9 PM onwards' },
   { iconName: 'Bath', text: 'Try a warm bath or light stretching' },
   { iconName: 'BookOpen', text: 'Replace scrolling with reading a book' },
@@ -96,7 +104,7 @@ export default function SleepScreen() {
               <Text style={styles.qualityDetail}>
                 Night usage:{' '}
                 <Text style={{ fontWeight: '700', color: qualityColor }}>
-                  {Math.floor((userStats?.nightUsageMs ?? 0) / 60000)} min
+                  {formatMs(userStats?.nightUsageMs ?? 0)}
                 </Text>
               </Text>
             </View>

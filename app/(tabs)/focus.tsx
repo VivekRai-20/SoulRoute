@@ -8,6 +8,7 @@ import {
   Platform,
   StatusBar,
   Alert,
+  Image,
 } from 'react-native';
 import { Icon, IconName } from '@/components/ui/Icon';
 import Animated, {
@@ -23,6 +24,7 @@ import Animated, {
 import { useWellbeing } from '@/context/WellbeingContext';
 import { GradientCard } from '@/components/ui/GradientCard';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
+import { getAppLogo, saveBlockedApps, startFocusBlocking, stopFocusBlocking } from '@/services/deviceStats';
 
 const DURATIONS = [
   { label: '5 min', value: 5, iconName: 'Zap' },
@@ -30,12 +32,11 @@ const DURATIONS = [
   { label: '50 min', value: 50, iconName: 'Flame' },
 ];
 
-const BLOCKED_APPS_MOCK = [
-  { appName: 'Instagram', iconName: 'Camera', blocked: true },
-  { appName: 'Twitter/X', iconName: 'Twitter', blocked: true },
-  { appName: 'YouTube', iconName: 'Youtube', blocked: true },
-  { appName: 'TikTok', iconName: 'Music', blocked: false },
-  { appName: 'Reddit', iconName: 'Bot', blocked: false },
+// We'll use real apps now, but here's a fallback list for safety
+const FALLBACK_APPS = [
+  { appName: 'WhatsApp', packageName: 'com.whatsapp' },
+  { appName: 'Instagram', packageName: 'com.instagram.android' },
+  { appName: 'YouTube', packageName: 'com.google.android.youtube' },
 ];
 
 function pad(n: number) {
@@ -43,12 +44,23 @@ function pad(n: number) {
 }
 
 export default function FocusScreen() {
-  const { focusMode, setFocusMode } = useWellbeing();
+  const { 
+    focusMode, 
+    setFocusMode, 
+    apps, 
+    allApps,
+    permissions, 
+    openOverlaySettings 
+  } = useWellbeing();
   const [selectedDuration, setSelectedDuration] = useState(25);
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [running, setRunning] = useState(false);
   const [completed, setCompleted] = useState(0);
-  const [blockedApps, setBlockedApps] = useState(BLOCKED_APPS_MOCK);
+  
+  // New: real app state
+  const [blockedPackages, setBlockedPackages] = useState<Set<string>>(new Set(['com.instagram.android', 'com.whatsapp']));
+  const [iconCache, setIconCache] = useState<Record<string, string>>({});
+  const [showAllApps, setShowAllApps] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -110,21 +122,71 @@ export default function FocusScreen() {
     }
   }, [running]);
 
-  const handleStart = () => {
+  // Memoize the full list of apps (Usage apps + All installed apps without duplicates)
+  const fullAppList = React.useMemo(() => {
+    const usagePackages = new Set(apps.map(a => a.packageName));
+    const list = [...apps];
+    
+    // Add apps from allApps that aren't in apps
+    for (const a of allApps) {
+      if (!usagePackages.has(a.packageName)) {
+        list.push({
+          packageName: a.packageName,
+          appName: a.appName,
+          category: 'Other' as any,
+          totalTimeInForeground: 0,
+          percentage: 0,
+          iconColor: '#94A3B8',
+        });
+      }
+    }
+    return list;
+  }, [apps, allApps]);
+
+  // Fetch icons for apps as they appear
+  useEffect(() => {
+    const fetchIcons = async () => {
+      // Fetch icons for visible apps (either top 10 or all if expanded)
+      const visibleApps = showAllApps ? fullAppList : apps.slice(0, 10);
+      for (const app of visibleApps) {
+        if (!iconCache[app.packageName]) {
+          const base64 = await getAppLogo(app.packageName);
+          if (base64) {
+            setIconCache(prev => ({ ...prev, [app.packageName]: base64 }));
+          }
+        }
+      }
+    };
+    if (fullAppList.length > 0) fetchIcons();
+  }, [fullAppList, apps, showAllApps]);
+
+  const handleStart = async () => {
     if (secondsLeft === 0) {
       setSecondsLeft(selectedDuration * 60);
       ringProgress.value = 1;
     }
-    setRunning(true);
-    setFocusMode(true);
+
+    try {
+      // Save blocked list to native first
+      await saveBlockedApps(Array.from(blockedPackages));
+      // Start background tracker
+      await startFocusBlocking();
+      
+      setRunning(true);
+      setFocusMode(true);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to start blocking service. Please check permissions.');
+    }
   };
 
-  const handlePause = () => {
+  const handlePause = async () => {
+    await stopFocusBlocking();
     setRunning(false);
     setFocusMode(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    await stopFocusBlocking();
     setRunning(false);
     setFocusMode(false);
     setSecondsLeft(selectedDuration * 60);
@@ -138,10 +200,13 @@ export default function FocusScreen() {
     ringProgress.value = 1;
   };
 
-  const toggleBlockApp = (index: number) => {
-    setBlockedApps((prev) =>
-      prev.map((app, i) => (i === index ? { ...app, blocked: !app.blocked } : app))
-    );
+  const toggleBlockPackage = (pkg: string) => {
+    setBlockedPackages((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg)) next.delete(pkg);
+      else next.add(pkg);
+      return next;
+    });
   };
 
   const ringStyle = useAnimatedStyle(() => {
@@ -318,40 +383,86 @@ export default function FocusScreen() {
 
         {/* Blocked Apps Section */}
         <Animated.View entering={FadeInDown.duration(600).delay(400)}>
-          <Text style={styles.sectionTitle}>App Blocking (Mock)</Text>
+          <Text style={styles.sectionTitle}>Blocked Apps</Text>
           <Text style={styles.sectionSub}>
-            Toggle apps to block during focus sessions
+            Select apps to block during focus sessions
           </Text>
 
-          <View style={[styles.blockedCard, Shadow.sm]}>
-            {blockedApps.map((app, index) => (
-              <View key={app.appName} style={styles.appRow}>
-                <Icon name={app.iconName as IconName} size={22} color={Palette.grey600} style={{ marginRight: Spacing.md }} />
-                <Text style={styles.appName}>{app.appName}</Text>
-                <TouchableOpacity
-                  style={[
-                    styles.blockToggle,
-                    { backgroundColor: app.blocked ? '#FFEBEE' : '#F0FFF4' },
-                  ]}
-                  onPress={() => toggleBlockApp(index)}
-                >
-                  {app.blocked ? (
-                    <Icon name="ShieldOff" size={14} color="#C62828" strokeWidth={2} />
-                  ) : (
-                    <Icon name="ShieldCheck" size={14} color="#2E7D32" strokeWidth={2} />
-                  )}
-                  <Text
-                    style={[
-                      styles.blockToggleText,
-                      { color: app.blocked ? '#C62828' : '#2E7D32' },
-                    ]}
-                  >
-                    {app.blocked ? ' Blocked' : ' Allowed'}
-                  </Text>
-                </TouchableOpacity>
+          {permissions.checked && !permissions.overlayAccess && (
+            <TouchableOpacity 
+              style={styles.overlayWarning} 
+              onPress={openOverlaySettings}
+              activeOpacity={0.7}
+            >
+              <Icon name="ShieldAlert" size={20} color="#E65100" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.overlayWarningTitle}>Permission Required</Text>
+                <Text style={styles.overlayWarningDesc}>
+                  'Display over other apps' is needed for blocking to work. Tap to fix.
+                </Text>
               </View>
-            ))}
+              <Icon name="ChevronRight" size={18} color="#E65100" />
+            </TouchableOpacity>
+          )}
+
+          <View style={[styles.blockedCard, Shadow.sm]}>
+            {(fullAppList.length > 0 
+              ? (showAllApps ? fullAppList : apps.slice(0, 10)) 
+              : FALLBACK_APPS
+            ).map((app) => {
+              const isBlocked = blockedPackages.has(app.packageName);
+              const iconBase64 = iconCache[app.packageName];
+
+              return (
+                <View key={app.packageName} style={styles.appRow}>
+                  <View style={styles.appIconContainer}>
+                    {iconBase64 ? (
+                      <Image 
+                        source={{ uri: `data:image/png;base64,${iconBase64}` }} 
+                        style={styles.realAppIcon}
+                      />
+                    ) : (
+                      <Icon name="Smartphone" size={20} color={Palette.grey400} />
+                    )}
+                  </View>
+                  <Text style={styles.appName} numberOfLines={1}>{app.appName}</Text>
+                  <TouchableOpacity
+                    style={[
+                      styles.blockToggle,
+                      { backgroundColor: isBlocked ? '#FFEBEE' : '#F0FFF4' },
+                    ]}
+                    onPress={() => toggleBlockPackage(app.packageName)}
+                  >
+                    {isBlocked ? (
+                      <Icon name="ShieldOff" size={14} color="#C62828" strokeWidth={2} />
+                    ) : (
+                      <Icon name="ShieldCheck" size={14} color="#2E7D32" strokeWidth={2} />
+                    )}
+                    <Text
+                      style={[
+                        styles.blockToggleText,
+                        { color: isBlocked ? '#C62828' : '#2E7D32' },
+                      ]}
+                    >
+                      {isBlocked ? ' Blocked' : ' Allowed'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
+          
+          {fullAppList.length > 10 && (
+            <TouchableOpacity 
+              style={styles.seeMoreBtn} 
+              onPress={() => setShowAllApps(!showAllApps)}
+            >
+              <Text style={styles.seeMoreText}>
+                {showAllApps ? 'See Less' : `See More (${fullAppList.length - 10} more)`}
+              </Text>
+              <Icon name={showAllApps ? 'ChevronUp' : 'ChevronDown'} size={16} color={Palette.teal} />
+            </TouchableOpacity>
+          )}
         </Animated.View>
 
         {/* Tips */}
@@ -568,6 +679,43 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     fontWeight: '700',
   },
+  appIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
+    overflow: 'hidden',
+  },
+  realAppIcon: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  overlayWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF3E0',
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  overlayWarningTitle: {
+    fontSize: Typography.size.sm,
+    fontWeight: '700',
+    color: '#E65100',
+    marginBottom: 2,
+  },
+  overlayWarningDesc: {
+    fontSize: 11,
+    color: '#EF6C00',
+    lineHeight: 14,
+  },
   tipTitle: {
     fontSize: Typography.size.base,
     fontWeight: Typography.weight.bold,
@@ -579,5 +727,18 @@ const styles = StyleSheet.create({
     color: Palette.tealDark,
     lineHeight: 22,
     opacity: 0.85,
+  },
+  seeMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingVertical: Spacing.base,
+    marginTop: Spacing.xs,
+  },
+  seeMoreText: {
+    color: Palette.teal,
+    fontSize: Typography.size.sm,
+    fontWeight: '600',
   },
 });

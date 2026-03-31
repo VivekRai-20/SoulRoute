@@ -42,7 +42,18 @@ const CHART_CONFIG = {
 type TabKey = 'screentime' | 'apps' | 'notifications';
 
 export default function AnalyticsScreen() {
-  const { weeklyTrend, categoryBreakdown, notifications, appsLoading } = useWellbeing();
+  const { 
+    weeklyTrend, 
+    categoryBreakdown, 
+    notifications, 
+    loading, 
+    isUsingMockData, 
+    permissions, 
+    isNotificationServiceActive,
+    openNotificationSettings,
+    openUsageSettings,
+    refreshAll
+  } = useWellbeing();
   const [activeTab, setActiveTab] = useState<TabKey>('screentime');
 
   const trendLabels = weeklyTrend.map((d) => d.date);
@@ -50,7 +61,9 @@ export default function AnalyticsScreen() {
     parseFloat((d.screenTimeMs / 3600000).toFixed(1))
   );
   const unlockData = weeklyTrend.map((d) => d.unlockCount);
-  const notifData = weeklyTrend.map((d) => d.notificationCount);
+  
+  const hasUsageData = screenTimeHours.some(h => h > 0);
+  const hasNotifData = notifications.length > 0 || weeklyTrend.some(d => d.notificationCount > 0);
 
   const pieData = categoryBreakdown.slice(0, 5).map((c) => ({
     name: c.category,
@@ -61,11 +74,10 @@ export default function AnalyticsScreen() {
   }));
 
   const notifBarData = {
-    labels: notifications.slice(0, 6).map((n) => n.appName.split(' ')[0]),
+    labels: trendLabels,
     datasets: [
       {
-        data: notifications.slice(0, 6).map((n) => n.count),
-        colors: notifications.slice(0, 6).map((n) => () => n === notifications[0] ? '#FF6B9D' : Palette.teal),
+        data: weeklyTrend.map((d) => d.notificationCount),
       },
     ],
   };
@@ -75,6 +87,279 @@ export default function AnalyticsScreen() {
     { key: 'apps', label: 'App Categories', iconName: 'LayoutGrid' },
     { key: 'notifications', label: 'Notifications', iconName: 'Bell' },
   ];
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.center}>
+          <SkeletonCard />
+          <View style={{ height: 16 }} />
+          <SkeletonCard />
+        </View>
+      );
+    }
+
+    // Check specific permissions per tab
+    const isMissingUsage = !permissions.usageAccess;
+    const isMissingNotif = !permissions.notificationAccess || !isNotificationServiceActive;
+
+    if ((activeTab === 'screentime' && !hasUsageData) || 
+        (activeTab === 'apps' && categoryBreakdown.length === 0) ||
+        (activeTab === 'notifications' && !hasNotifData)) {
+      
+      const showUsagePrompt = activeTab !== 'notifications' && isMissingUsage;
+      const showNotifPrompt = activeTab === 'notifications' && isMissingNotif;
+
+      return (
+        <View style={styles.emptyState}>
+          <Icon name={showUsagePrompt || showNotifPrompt ? "ShieldAlert" : "Search"} size={48} color={Palette.grey400} />
+          <Text style={styles.emptyTitle}>
+            {showUsagePrompt || showNotifPrompt ? "Permissions Required" : "No Data Recorded"}
+          </Text>
+          <Text style={styles.emptySub}>
+            {showUsagePrompt 
+              ? "We need Usage Access to track your app time and trends."
+              : showNotifPrompt
+                ? "Notification Access is required to count incoming alerts."
+                : "Your device hasn't recorded any data for this period yet."}
+          </Text>
+          
+          {showUsagePrompt && (
+            <TouchableOpacity style={styles.actionBtn} onPress={openUsageSettings}>
+              <Text style={styles.actionBtnText}>Grant Usage Access</Text>
+            </TouchableOpacity>
+          )}
+
+          {showNotifPrompt && (
+            <TouchableOpacity style={styles.actionBtn} onPress={openNotificationSettings}>
+              <Text style={styles.actionBtnText}>Grant Notification Access</Text>
+            </TouchableOpacity>
+          )}
+
+          {!showUsagePrompt && !showNotifPrompt && (
+            <TouchableOpacity style={[styles.actionBtn, {backgroundColor: Palette.mint}]} onPress={refreshAll}>
+              <Text style={styles.actionBtnText}>Refresh Data</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return (
+      <>
+        {/* ── Screen Time Line Chart ──────────────────────── */}
+        {activeTab === 'screentime' && (
+          <Animated.View entering={FadeInDown.duration(500)}>
+            <View style={[styles.chartCard, Shadow.md]}>
+              <View style={styles.chartTitleRow}>
+                <Icon name="TrendingUp" size={20} color={Palette.tealDark} />
+                <Text style={styles.chartTitle}>Screen Time Trend (hours/day)</Text>
+              </View>
+              <LineChart
+                data={{
+                  labels: trendLabels.length ? trendLabels : ['-'],
+                  datasets: [
+                    { data: screenTimeHours.length ? screenTimeHours : [0], color: () => Palette.tealDark, strokeWidth: 2.5 },
+                  ],
+                  legend: ['Screen Time (h)'],
+                }}
+                width={CHART_WIDTH}
+                height={220}
+                chartConfig={CHART_CONFIG}
+                bezier
+                style={styles.chart}
+                withInnerLines
+                withOuterLines={false}
+                withShadow={false}
+              />
+            </View>
+
+            {/* Unlock trend */}
+            <View style={[styles.chartCard, Shadow.md]}>
+              <View style={styles.chartTitleRow}>
+                <Icon name="Unlock" size={20} color="#FF9800" />
+                <Text style={[styles.chartTitle, { color: '#FF9800' }]}>Phone Unlocks per Day</Text>
+              </View>
+              <LineChart
+                data={{
+                  labels: trendLabels.length ? trendLabels : ['-'],
+                  datasets: [
+                    {
+                      data: unlockData.length ? unlockData : [0],
+                      color: () => '#FF9800',
+                      strokeWidth: 2,
+                    },
+                  ],
+                  legend: ['Unlocks'],
+                }}
+                width={CHART_WIDTH}
+                height={180}
+                chartConfig={{
+                  ...CHART_CONFIG,
+                  color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
+                }}
+                bezier
+                style={styles.chart}
+                withInnerLines
+                withOuterLines={false}
+                withShadow={false}
+              />
+            </View>
+
+            {/* Summary stats */}
+            <View style={styles.summaryRow}>
+              {[
+                {
+                  label: 'Avg Daily',
+                  value: `${(screenTimeHours.reduce((a, b) => a + b, 0) / (screenTimeHours.length || 1)).toFixed(1)}h`,
+                  color: Palette.tealDark,
+                  bg: '#F0FFF4',
+                  iconName: 'BarChart2',
+                },
+                {
+                  label: 'Peak Day',
+                  value: `${Math.max(...(screenTimeHours.length ? screenTimeHours : [0]))}h`,
+                  color: '#E67E22',
+                  bg: '#FFF8F0',
+                  iconName: 'Zap',
+                },
+                {
+                  label: 'Best Day',
+                  value: `${Math.min(...(screenTimeHours.length ? screenTimeHours : [0]))}h`,
+                  color: '#27AE60',
+                  bg: '#F0FFF4',
+                  iconName: 'Leaf',
+                },
+              ].map((item: any) => (
+                <View
+                  key={item.label}
+                  style={[styles.summaryCard, { backgroundColor: item.bg }, Shadow.sm]}
+                >
+                  <Icon name={item.iconName} size={24} color={item.color} />
+                  <Text style={[styles.summaryVal, { color: item.color }]}>{item.value}</Text>
+                  <Text style={styles.summaryLabel}>{item.label}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── App Category Pie Chart ──────────────────────── */}
+        {activeTab === 'apps' && (
+          <Animated.View entering={FadeInDown.duration(500)}>
+            <View style={[styles.chartCard, Shadow.md]}>
+              <View style={styles.chartTitleRow}>
+                <Icon name="LayoutGrid" size={20} color={Palette.tealDark} />
+                <Text style={styles.chartTitle}>App Usage by Category</Text>
+              </View>
+              {pieData.length > 0 ? (
+                <PieChart
+                  data={pieData}
+                  width={CHART_WIDTH}
+                  height={200}
+                  chartConfig={CHART_CONFIG}
+                  accessor="population"
+                  backgroundColor="transparent"
+                  paddingLeft="10"
+                  center={[10, 0]}
+                  absolute={false}
+                  hasLegend
+                />
+              ) : (
+                <Text style={styles.noDataText}>No category data available</Text>
+              )}
+            </View>
+
+            {/* Category breakdown list */}
+            <View style={[styles.chartCard, Shadow.sm]}>
+              <Text style={styles.chartTitle}>Breakdown</Text>
+              {categoryBreakdown.length > 0 ? (
+                categoryBreakdown.map((cat) => (
+                  <View key={cat.category} style={styles.catRow}>
+                    <View
+                      style={[styles.catDot, { backgroundColor: cat.color }]}
+                    />
+                    <Text style={styles.catName}>{cat.category}</Text>
+                    <View style={styles.catBarBg}>
+                      <View
+                        style={[
+                          styles.catBarFill,
+                          {
+                            width: `${cat.percentage}%` as any,
+                            backgroundColor: cat.color,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.catPct}>{cat.percentage.toFixed(0)}%</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noDataText}>No data available</Text>
+              )}
+            </View>
+          </Animated.View>
+        )}
+
+        {/* ── Notifications Bar Chart ─────────────────────── */}
+        {activeTab === 'notifications' && (
+          <Animated.View entering={FadeInDown.duration(500)}>
+            <View style={[styles.chartCard, Shadow.md]}>
+              <View style={styles.chartTitleRow}>
+                <Icon name="Bell" size={20} color={Palette.tealDark} />
+                <Text style={styles.chartTitle}>Notifications Trend (Last 7 Days)</Text>
+              </View>
+              <BarChart
+                data={{
+                  labels: notifBarData.labels.length ? notifBarData.labels : ['-'],
+                  datasets: notifBarData.datasets
+                }}
+                width={CHART_WIDTH}
+                height={220}
+                chartConfig={{
+                  ...CHART_CONFIG,
+                  color: (opacity = 1) => `rgba(142, 68, 173, ${opacity})`,
+                  barPercentage: 0.6,
+                }}
+                style={styles.chart}
+                showValuesOnTopOfBars
+                withInnerLines
+                fromZero
+                yAxisLabel=""
+                yAxisSuffix=""
+              />
+            </View>
+
+            {/* Notif list */}
+            <View style={[styles.chartCard, Shadow.sm]}>
+              <Text style={styles.chartTitle}>Top Apps (Today)</Text>
+              {notifications.length > 0 ? (
+                notifications.map((n, i) => (
+                  <View key={n.packageName} style={styles.notifRow}>
+                    <Text style={styles.notifRank}>#{i + 1}</Text>
+                    <Text style={styles.notifApp}>{n.appName}</Text>
+                    <View style={styles.notifBarBg}>
+                      <View
+                        style={[
+                          styles.notifBarFill,
+                          {
+                            width: `${(n.count / (notifications[0].count || 1)) * 100}%` as any,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.notifCount}>{n.count}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.noDataText}>No notifications recorded today</Text>
+              )}
+            </View>
+          </Animated.View>
+        )}
+      </>
+    );
+  };
 
   return (
     <View style={styles.root}>
@@ -113,204 +398,7 @@ export default function AnalyticsScreen() {
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ── Screen Time Line Chart ──────────────────────── */}
-        {activeTab === 'screentime' && (
-          <>
-            <Animated.View entering={FadeInDown.duration(500)}>
-              <View style={[styles.chartCard, Shadow.md]}>
-                <View style={styles.chartTitleRow}>
-                  <Icon name="TrendingUp" size={20} color={Palette.tealDark} />
-                  <Text style={styles.chartTitle}>Screen Time Trend (hours/day)</Text>
-                </View>
-                <LineChart
-                  data={{
-                    labels: trendLabels,
-                    datasets: [
-                      { data: screenTimeHours, color: () => Palette.tealDark, strokeWidth: 2.5 },
-                    ],
-                    legend: ['Screen Time (h)'],
-                  }}
-                  width={CHART_WIDTH}
-                  height={220}
-                  chartConfig={CHART_CONFIG}
-                  bezier
-                  style={styles.chart}
-                  withInnerLines
-                  withOuterLines={false}
-                  withShadow={false}
-                />
-              </View>
-
-              {/* Unlock trend */}
-              <View style={[styles.chartCard, Shadow.md]}>
-                <View style={styles.chartTitleRow}>
-                  <Icon name="Unlock" size={20} color="#FF9800" />
-                  <Text style={[styles.chartTitle, { color: '#FF9800' }]}>Phone Unlocks per Day</Text>
-                </View>
-                <LineChart
-                  data={{
-                    labels: trendLabels,
-                    datasets: [
-                      {
-                        data: unlockData,
-                        color: () => '#FF9800',
-                        strokeWidth: 2,
-                      },
-                    ],
-                    legend: ['Unlocks'],
-                  }}
-                  width={CHART_WIDTH}
-                  height={180}
-                  chartConfig={{
-                    ...CHART_CONFIG,
-                    color: (opacity = 1) => `rgba(255, 152, 0, ${opacity})`,
-                  }}
-                  bezier
-                  style={styles.chart}
-                  withInnerLines
-                  withOuterLines={false}
-                  withShadow={false}
-                />
-              </View>
-
-              {/* Summary stats */}
-              <View style={styles.summaryRow}>
-                {[
-                  {
-                    label: 'Avg Daily',
-                    value: `${(screenTimeHours.reduce((a, b) => a + b, 0) / 7).toFixed(1)}h`,
-                    color: Palette.tealDark,
-                    bg: '#F0FFF4',
-                    iconName: 'BarChart2',
-                  },
-                  {
-                    label: 'Peak Day',
-                    value: `${Math.max(...screenTimeHours)}h`,
-                    color: '#E67E22',
-                    bg: '#FFF8F0',
-                    iconName: 'Zap',
-                  },
-                  {
-                    label: 'Best Day',
-                    value: `${Math.min(...screenTimeHours)}h`,
-                    color: '#27AE60',
-                    bg: '#F0FFF4',
-                    iconName: 'Leaf',
-                  },
-                ].map((item: any) => (
-                  <View
-                    key={item.label}
-                    style={[styles.summaryCard, { backgroundColor: item.bg }, Shadow.sm]}
-                  >
-                    <Icon name={item.iconName} size={24} color={item.color} />
-                    <Text style={[styles.summaryVal, { color: item.color }]}>{item.value}</Text>
-                    <Text style={styles.summaryLabel}>{item.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </Animated.View>
-          </>
-        )}
-
-        {/* ── App Category Pie Chart ──────────────────────── */}
-        {activeTab === 'apps' && (
-          <Animated.View entering={FadeInDown.duration(500)}>
-            <View style={[styles.chartCard, Shadow.md]}>
-              <View style={styles.chartTitleRow}>
-                <Icon name="LayoutGrid" size={20} color={Palette.tealDark} />
-                <Text style={styles.chartTitle}>App Usage by Category</Text>
-              </View>
-              <PieChart
-                data={pieData}
-                width={CHART_WIDTH}
-                height={200}
-                chartConfig={CHART_CONFIG}
-                accessor="population"
-                backgroundColor="transparent"
-                paddingLeft="10"
-                center={[10, 0]}
-                absolute={false}
-                hasLegend
-              />
-            </View>
-
-            {/* Category breakdown list */}
-            <View style={[styles.chartCard, Shadow.sm]}>
-              <Text style={styles.chartTitle}>Breakdown</Text>
-              {categoryBreakdown.map((cat) => (
-                <View key={cat.category} style={styles.catRow}>
-                  <View
-                    style={[styles.catDot, { backgroundColor: cat.color }]}
-                  />
-                  <Text style={styles.catName}>{cat.category}</Text>
-                  <View style={styles.catBarBg}>
-                    <View
-                      style={[
-                        styles.catBarFill,
-                        {
-                          width: `${cat.percentage}%` as any,
-                          backgroundColor: cat.color,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.catPct}>{cat.percentage.toFixed(0)}%</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {/* ── Notifications Bar Chart ─────────────────────── */}
-        {activeTab === 'notifications' && (
-          <Animated.View entering={FadeInDown.duration(500)}>
-            <View style={[styles.chartCard, Shadow.md]}>
-              <View style={styles.chartTitleRow}>
-                <Icon name="Bell" size={20} color={Palette.tealDark} />
-                <Text style={styles.chartTitle}>Notifications by App (Today)</Text>
-              </View>
-              <BarChart
-                data={notifBarData}
-                width={CHART_WIDTH}
-                height={220}
-                chartConfig={{
-                  ...CHART_CONFIG,
-                  color: (opacity = 1) => `rgba(142, 68, 173, ${opacity})`,
-                  barPercentage: 0.6,
-                }}
-                style={styles.chart}
-                showValuesOnTopOfBars
-                withInnerLines
-                fromZero
-                yAxisLabel=""
-                yAxisSuffix=""
-              />
-            </View>
-
-            {/* Notif list */}
-            <View style={[styles.chartCard, Shadow.sm]}>
-              <Text style={styles.chartTitle}>By App (descending)</Text>
-              {notifications.map((n, i) => (
-                <View key={n.packageName} style={styles.notifRow}>
-                  <Text style={styles.notifRank}>#{i + 1}</Text>
-                  <Text style={styles.notifApp}>{n.appName}</Text>
-                  <View style={styles.notifBarBg}>
-                    <View
-                      style={[
-                        styles.notifBarFill,
-                        {
-                          width: `${(n.count / notifications[0].count) * 100}%` as any,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.notifCount}>{n.count}</Text>
-                </View>
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
+        {renderContent()}
         <View style={{ height: 24 }} />
       </ScrollView>
     </View>
@@ -322,6 +410,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Palette.bgLight,
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight ?? 0 : 0,
+  },
+  center: {
+    paddingVertical: Spacing.xl,
+    alignItems: 'center',
   },
   header: {
     paddingHorizontal: Spacing.base,
@@ -357,10 +449,6 @@ const styles = StyleSheet.create({
   },
   tabActive: {
     backgroundColor: Palette.tealDark,
-  },
-  tabEmoji: {
-    fontSize: 16,
-    marginBottom: 2,
   },
   tabLabel: {
     fontSize: 9,
@@ -488,5 +576,42 @@ const styles = StyleSheet.create({
     color: '#9C27B0',
     fontWeight: '700',
     textAlign: 'right',
+  },
+  emptyState: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: Spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: Typography.size.lg,
+    fontWeight: Typography.weight.bold,
+    color: Palette.tealDark,
+    marginTop: Spacing.base,
+  },
+  emptySub: {
+    fontSize: Typography.size.sm,
+    color: Palette.grey600,
+    textAlign: 'center',
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+  },
+  noDataText: {
+    fontSize: Typography.size.sm,
+    color: Palette.grey400,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
+  },
+  actionBtn: {
+    marginTop: Spacing.xl,
+    backgroundColor: Palette.tealDark,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+  },
+  actionBtnText: {
+    color: Palette.white,
+    fontWeight: Typography.weight.bold,
+    fontSize: Typography.size.sm,
   },
 });
