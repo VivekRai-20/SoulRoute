@@ -4,11 +4,10 @@
  * Unified hook that:
  * 1. Checks usage + notification permissions on mount
  * 2. Fetches all real device data when permissions are granted
- * 3. Falls back to mock data when permissions are missing or on non-Android
- * 4. Exposes permissionState so the UI can render a permission prompt
+ * 3. Atomic state updates via useReducer to prevent redundant re-renders
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useReducer, useEffect, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 import type { AppUsage, NotificationData, UserStats, WeeklyTrend, CategoryBreakdown } from '@/types';
 import {
@@ -28,31 +27,19 @@ import {
   getOverlayPermissionState,
   openOverlaySettings as openOverlaySettingsSvc,
   getAllApps,
+  getNotificationDebugInfo,
+  requestRebind,
 } from '@/services/deviceStats';
 
-// ─── Category classifier ──────────────────────────────────────────────────────
+// ─── Constants & Utils ────────────────────────────────────────────────────────
 
 const CATEGORY_MAP: Record<string, string> = {
   'com.instagram.android': 'Social',
   'com.twitter.android': 'Social',
   'com.facebook.katana': 'Social',
-  'com.snapchat.android': 'Social',
-  'com.linkedin.android': 'Social',
-  'com.google.android.youtube': 'Entertainment',
-  'com.netflix.mediaclient': 'Entertainment',
-  'com.spotify.music': 'Entertainment',
-  'com.disney.disneyplus': 'Entertainment',
-  'com.amazon.avod.thirdpartyclient': 'Entertainment',
   'com.whatsapp': 'Communication',
-  'com.google.android.talk': 'Communication',
-  'org.telegram.messenger': 'Communication',
-  'com.skype.raider': 'Communication',
-  'com.microsoft.teams': 'Communication',
+  'com.google.android.youtube': 'Entertainment',
   'com.google.android.gm': 'Productivity',
-  'com.microsoft.launcher': 'Productivity',
-  'com.notion.android': 'Productivity',
-  'com.todoist.android.Todoist': 'Productivity',
-  'com.google.android.calendar': 'Productivity',
 };
 
 const ICON_COLORS: Record<string, string> = {
@@ -60,28 +47,12 @@ const ICON_COLORS: Record<string, string> = {
   'Entertainment': '#FF0000',
   'Communication': '#25D366',
   'Productivity': '#4285F4',
-  'Health': '#4CAF50',
-  'Games': '#FF9800',
-  'News': '#9C27B0',
   'Other': '#9AB0A8',
-};
-
-const APP_COLORS: Record<string, string> = {
-  'com.instagram.android': '#E1306C',
-  'com.google.android.youtube': '#FF0000',
-  'com.whatsapp': '#25D366',
-  'com.twitter.android': '#1DA1F2',
-  'com.netflix.mediaclient': '#E50914',
-  'com.google.android.gm': '#EA4335',
-  'com.spotify.music': '#1DB954',
-  'com.facebook.katana': '#1877F2',
-  'org.telegram.messenger': '#2CA5E0',
-  'com.snapchat.android': '#FFFC00',
 };
 
 function classifyApp(packageName: string): { category: string; iconColor: string } {
   const category = CATEGORY_MAP[packageName] ?? 'Other';
-  const iconColor = APP_COLORS[packageName] ?? ICON_COLORS[category] ?? '#9AB0A8';
+  const iconColor = ICON_COLORS[category] ?? '#9AB0A8';
   return { category, iconColor };
 }
 
@@ -96,9 +67,6 @@ function buildCategoryBreakdown(apps: AppUsage[]): CategoryBreakdown[] {
     'Entertainment': '#A78BFA',
     'Communication': '#34D399',
     'Productivity': '#60A5FA',
-    'Health': '#4CAF50',
-    'Games': '#FBBF24',
-    'News': '#C084FC',
     'Other': '#94A3B8',
   };
   return Object.entries(map)
@@ -111,47 +79,15 @@ function buildCategoryBreakdown(apps: AppUsage[]): CategoryBreakdown[] {
     .sort((a, b) => b.totalTimeMs - a.totalTimeMs);
 }
 
-function computeFatigueScore(
-  screenTimeMs: number,
-  unlocks: number,
-  notifCount: number,
-  nightMs: number,
-  goalMs: number
-): UserStats['fatigueScore'] {
-  // Score factors (max 100 total)
-  const screenFactor = Math.min(35, Math.round((screenTimeMs / (6 * 3600000)) * 35));
-  const unlockFactor = Math.min(20, Math.round((unlocks / 100) * 20));
-  const notifFactor = Math.min(25, Math.round((notifCount / 200) * 25));
-  const nightFactor = Math.min(20, Math.round((nightMs / (30 * 60000)) * 20));
+// ─── Types & Reducer ──────────────────────────────────────────────────────────
 
-  const score = screenFactor + unlockFactor + notifFactor + nightFactor;
-  const level =
-    score < 30 ? 'low' : score < 55 ? 'medium' : score < 75 ? 'high' : 'critical';
-
-  return {
-    score,
-    level,
-    breakdown: {
-      screenTimeFactor: screenFactor,
-      unlockFactor,
-      notificationFactor: notifFactor,
-      nightUsageFactor: nightFactor,
-    },
+interface State {
+  permissions: {
+    usageAccess: boolean;
+    notificationAccess: boolean;
+    overlayAccess: boolean;
+    checked: boolean;
   };
-}
-
-// ─── Permission state type ────────────────────────────────────────────────────
-
-export interface PermissionState {
-  usageAccess: boolean;
-  notificationAccess: boolean;
-  overlayAccess: boolean;
-  checked: boolean; // true once we've done the initial check
-}
-
-// ─── Return type ──────────────────────────────────────────────────────────────
-
-export interface DeviceStatsReturn {
   userStats: UserStats | null;
   apps: AppUsage[];
   categoryBreakdown: CategoryBreakdown[];
@@ -159,70 +95,64 @@ export interface DeviceStatsReturn {
   totalNotifications: number;
   weeklyTrend: WeeklyTrend[];
   nightUsage: { hour: string; minutes: number }[];
-
+  allApps: { packageName: string; appName: string }[];
   loading: boolean;
   error: string | null;
   isUsingMockData: boolean;
+  isServiceActive: boolean;
+  notificationDebug: any;
+}
 
-  permissions: PermissionState;
-  openUsageSettings: () => void;
-  openNotificationSettings: () => void;
-  openOverlaySettings: () => void;
-  isNotificationServiceActive: boolean;
-  refresh: () => Promise<void>;
-  allApps: { packageName: string; appName: string }[];
+type Action =
+  | { type: 'SET_PERMISSIONS'; payload: Partial<State['permissions']> }
+  | { type: 'SET_DATA'; payload: Partial<State> }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_ERROR'; payload: string | null };
+
+const initialState: State = {
+  permissions: { usageAccess: false, notificationAccess: false, overlayAccess: false, checked: false },
+  userStats: null,
+  apps: [],
+  categoryBreakdown: [],
+  notifications: [],
+  totalNotifications: 0,
+  weeklyTrend: [],
+  nightUsage: [],
+  allApps: [],
+  loading: true,
+  error: null,
+  isUsingMockData: true,
+  isServiceActive: false,
+  notificationDebug: null,
+};
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case 'SET_PERMISSIONS':
+      return { ...state, permissions: { ...state.permissions, ...action.payload } };
+    case 'SET_DATA':
+      return { ...state, ...action.payload, loading: false };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+    default:
+      return state;
+  }
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useDeviceStats(): DeviceStatsReturn {
-  const [permissions, setPermissions] = useState<PermissionState>({
-    usageAccess: false,
-    notificationAccess: false,
-    overlayAccess: false,
-    checked: false,
-  });
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const [apps, setApps] = useState<AppUsage[]>([]);
-  const [categoryBreakdown, setCategoryBreakdown] = useState<CategoryBreakdown[]>([]);
-  const [notifications, setNotifications] = useState<NotificationData[]>([]);
-  const [weeklyTrend, setWeeklyTrend] = useState<WeeklyTrend[]>([]);
-  const [nightUsage, setNightUsage] = useState<{ hour: string; minutes: number }[]>([]);
-  const [allApps, setAllApps] = useState<{ packageName: string; appName: string }[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isUsingMockData, setIsUsingMockData] = useState(true);
-  const [isServiceActive, setIsServiceActive] = useState(false);
-
-  // Re-check permissions when the app returns from background
-  // (user may have just granted access in Settings)
+export function useDeviceStats() {
+  const [state, dispatch] = useReducer(reducer, initialState);
   const appStateRef = useRef(AppState.currentState);
 
-  const checkPermissions = useCallback(async () => {
-    const [usageAccess, notificationAccess, overlayAccess] = await Promise.all([
-      hasUsagePermission(),
-      hasNotificationPermission(),
-      getOverlayPermissionState(),
-    ]);
-    setPermissions({ usageAccess, notificationAccess, overlayAccess, checked: true });
-    return { usageAccess, notificationAccess, overlayAccess };
-  }, []);
-
   const fetchRealData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
       const [
-        rawApps,
-        totalScreenTimeMs,
-        unlockCount,
-        nightMs,
-        rawNotifs,
-        rawWeeklyTrend,
-        rawWeeklyNotifs,
-        rawIsServiceActive,
-        rawNightHourly,
-        allInstalledApps,
+        rawApps, screenMs, unlocks, nightMs, rawNotifs,
+        rawTrend, rawWeeklyNotifs, rawService, rawNightHourly, rawNotifDebug
       ] = await Promise.all([
         getAppUsageStats(),
         getTotalScreenTime(),
@@ -233,12 +163,16 @@ export function useDeviceStats(): DeviceStatsReturn {
         getWeeklyNotificationStats().catch(() => []),
         isNotificationServiceRunning().catch(() => false),
         getNightUsageHourly().catch(() => []),
-        getAllApps().catch(() => []),
+        getNotificationDebugInfo().catch(() => null),
       ]);
 
-      console.log(`[SoulRoute] Notifications fetched: ${rawNotifs.length}, All Apps: ${allInstalledApps.length}`);
-      
-      // ─ Transform apps
+      // Nudge notification service if permission is granted but it's not active
+      const hasPerm = await hasNotificationPermission();
+      if (hasPerm && !rawService) {
+        requestRebind();
+      }
+
+      // Transform data
       const totalMs = rawApps.reduce((s, a) => s + a.totalTimeInForeground, 0);
       const mappedApps: AppUsage[] = rawApps.map((a) => {
         const { category, iconColor } = classifyApp(a.packageName);
@@ -252,12 +186,8 @@ export function useDeviceStats(): DeviceStatsReturn {
         };
       });
 
-      // ─ Category breakdown
-      const breakdown = buildCategoryBreakdown(mappedApps);
-
-      // ─ Notifications
-      const totalNotifCount = rawNotifs.reduce((s: number, n: any) => s + n.count, 0);
-      const mappedNotifs: NotificationData[] = rawNotifs.slice(0, 10).map((n: any) => ({
+      const totalNotifCount = rawNotifs.reduce((s, n) => s + n.count, 0);
+      const mappedNotifs: NotificationData[] = rawNotifs.slice(0, 10).map((n) => ({
         appName: n.appName ?? n.packageName.split('.').pop() ?? n.packageName,
         packageName: n.packageName,
         count: n.count,
@@ -265,115 +195,83 @@ export function useDeviceStats(): DeviceStatsReturn {
         category: (classifyApp(n.packageName).category as any),
       }));
 
-      // ─ Fatigue score
-      const fatigueScore = computeFatigueScore(
-        totalScreenTimeMs,
-        unlockCount,
-        totalNotifCount,
-        nightMs,
-        3 * 3600000 // default goal
-      );
-
-      const stats: UserStats = {
-        date: new Date().toISOString(),
-        totalScreenTimeMs,
-        unlockCount,
-        notificationCount: totalNotifCount,
-        nightUsageMs: nightMs,
-        dailyGoalMs: 3 * 3600000,
-        fatigueScore,
-      };
-
-      // ─ Build merged weekly trend
-      const mergedTrend: WeeklyTrend[] = (rawWeeklyTrend as any[]).map((t: any) => {
-        const notifDay = (rawWeeklyNotifs as any[]).find((n: any) => n.date === t.date);
-        return {
-          date: t.date,
-          screenTimeMs: t.screenTimeMs,
-          unlockCount: t.unlockCount,
-          notificationCount: notifDay ? notifDay.count : 0,
-        };
+      // Merge trend
+      const trend: WeeklyTrend[] = rawTrend.map((t) => {
+        const notif = rawWeeklyNotifs.find((n) => n.date === t.date);
+        return { ...t, notificationCount: notif ? notif.count : 0 };
       });
 
-      setApps(mappedApps);
-      setCategoryBreakdown(breakdown);
-      setNotifications(mappedNotifs);
-      setWeeklyTrend(mergedTrend);
-      setNightUsage(rawNightHourly);
-      setUserStats(stats);
-      setAllApps(allInstalledApps);
-      setIsServiceActive(rawIsServiceActive);
-      setIsUsingMockData(false);
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to fetch device stats');
-      // Fall back to mock
-      loadMockData();
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      // Calculate total night usage from hourly breakdown to ensure consistency
+      const totalNightMs = rawNightHourly.reduce((acc, curr) => acc + (curr.minutes * 60000), 0);
 
-  const loadMockData = useCallback(() => {
-    // We no longer use mock data as fallbacks
-    setApps([]);
-    setCategoryBreakdown([]);
-    setNotifications([]);
-    setWeeklyTrend([]);
-    setNightUsage([]);
-    setUserStats(null);
-    setIsUsingMockData(true);
-    setLoading(false);
+      dispatch({
+        type: 'SET_DATA',
+        payload: {
+          apps: mappedApps,
+          categoryBreakdown: buildCategoryBreakdown(mappedApps),
+          notifications: mappedNotifs,
+          totalNotifications: totalNotifCount,
+          weeklyTrend: trend,
+          nightUsage: rawNightHourly,
+          userStats: {
+            date: new Date().toISOString(),
+            totalScreenTimeMs: screenMs,
+            unlockCount: unlocks,
+            notificationCount: totalNotifCount,
+            nightUsageMs: totalNightMs,
+            dailyGoalMs: 3 * 3600000,
+            fatigueScore: { 
+              score: 0, 
+              level: 'low' as const,
+              breakdown: { screenTimeFactor: 0, unlockFactor: 0, notificationFactor: 0, nightUsageFactor: 0 }
+            },
+          },
+          isServiceActive: rawService,
+          isUsingMockData: false,
+          notificationDebug: rawNotifDebug,
+        }
+      });
+    } catch (e: any) {
+      dispatch({ type: 'SET_ERROR', payload: e?.message ?? 'Fetch failed' });
+    }
   }, []);
 
   const refresh = useCallback(async () => {
-    const perms = await checkPermissions();
-    if (perms.usageAccess) {
-      await fetchRealData();
-    } else {
-      loadMockData();
-    }
-  }, [checkPermissions, fetchRealData, loadMockData]);
+    const [usage, notification, overlay] = await Promise.all([
+      hasUsagePermission(),
+      hasNotificationPermission(),
+      getOverlayPermissionState(),
+    ]);
+    dispatch({ type: 'SET_PERMISSIONS', payload: { usageAccess: usage, notificationAccess: notification, overlayAccess: overlay, checked: true } });
+    if (usage) await fetchRealData();
+    else dispatch({ type: 'SET_DATA', payload: { isUsingMockData: true } });
+  }, [fetchRealData]);
 
-  // On mount: check permissions then load
-  useEffect(() => {
-    refresh();
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
-  // Re-check permissions when app comes back to foreground
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (
-        appStateRef.current.match(/inactive|background/) &&
-        nextState === 'active'
-      ) {
-        // Always refresh on foreground — the user may have just granted
-        // Usage Access or Notification Access in Settings.
-        refresh();
-      }
-      appStateRef.current = nextState;
+    const sub = AppState.addEventListener('change', (s) => {
+      if (appStateRef.current.match(/inactive|background/) && s === 'active') refresh();
+      appStateRef.current = s;
     });
     return () => sub.remove();
   }, [refresh]);
 
-  const totalNotifications = notifications.reduce((s, n) => s + n.count, 0);
-
   return {
-    userStats,
-    apps,
-    categoryBreakdown,
-    notifications,
-    totalNotifications,
-    weeklyTrend,
-    nightUsage,
-    loading,
-    error,
-    isUsingMockData,
-    permissions,
+    ...state,
+    refresh,
     openUsageSettings: openUsageAccessSettings,
     openNotificationSettings: openNotificationListenerSettings,
     openOverlaySettings: openOverlaySettingsSvc,
-    isNotificationServiceActive: isServiceActive,
-    refresh,
-    allApps,
+    isNotificationServiceActive: state.isServiceActive,
+    // Add lazy fetcher for allApps
+    fetchAllApps: async () => {
+      const apps = await getAllApps();
+      dispatch({ type: 'SET_DATA', payload: { allApps: apps } });
+      return apps;
+    }
   };
 }
+
+export type PermissionState = State['permissions'];
+export type DeviceStatsReturn = ReturnType<typeof useDeviceStats>;

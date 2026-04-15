@@ -9,11 +9,14 @@ import {
   Platform,
   StatusBar,
   Alert,
+  TextInput,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Icon, IconName } from '@/components/ui/Icon';
 import { useWellbeing } from '@/context/WellbeingContext';
 import { GradientCard } from '@/components/ui/GradientCard';
+import { StreakBadge } from '@/components/ui/StreakBadge';
+import { RecommendationCard } from '@/components/ui/RecommendationCard';
 import { Palette, Spacing, Typography, Radius, Shadow } from '@/constants/Theme';
 
 // Goal options in hours
@@ -57,12 +60,24 @@ export default function ProfileScreen() {
     notificationsEnabled,
     setNotificationsEnabled,
     isUsingMockData,
+    streak,
+    userName,
+    setUserName,
+    recommendations,
+    dismissRecommendation,
   } = useWellbeing();
 
-  const [userName, setUserName] = useState('Vivek');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(userName);
   const [darkMode, setDarkMode] = useState(false);
   const [weeklyReport, setWeeklyReport] = useState(true);
   const [haptics, setHaptics] = useState(true);
+
+  const handleSaveName = () => {
+    const trimmed = nameInput.trim();
+    if (trimmed) setUserName(trimmed);
+    setEditingName(false);
+  };
 
   const selectedGoalHours = Math.round(dailyGoalMs / 3600000);
 
@@ -79,12 +94,32 @@ export default function ProfileScreen() {
                 <Icon name="User" size={38} color={Palette.tealDark} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.userName}>{userName}</Text>
+                {editingName ? (
+                  <View style={styles.nameEditRow}>
+                    <TextInput
+                      style={styles.nameInput}
+                      value={nameInput}
+                      onChangeText={setNameInput}
+                      autoFocus
+                      returnKeyType="done"
+                      onSubmitEditing={handleSaveName}
+                      maxLength={30}
+                    />
+                    <TouchableOpacity onPress={handleSaveName} style={styles.nameSaveBtn}>
+                      <Icon name="Check" size={18} color={Palette.tealDark} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                    onPress={() => { setNameInput(userName); setEditingName(true); }}
+                  >
+                    <Text style={styles.userName}>{userName}</Text>
+                    <Icon name="Pencil" size={14} color={Palette.tealDark} strokeWidth={2} />
+                  </TouchableOpacity>
+                )}
                 <Text style={styles.userSub}>SoulRoute Member</Text>
-                <View style={styles.streakBadge}>
-                  <Icon name="Flame" size={12} color="#E67E22" style={{ marginRight: 2 }} />
-                  <Text style={styles.streakText}>7-day streak</Text>
-                </View>
+                <StreakBadge streak={streak} compact />
               </View>
             </View>
 
@@ -247,6 +282,23 @@ export default function ProfileScreen() {
           </View>
         </Animated.View>
 
+        {/* Recommendations */}
+        {recommendations.length > 0 && (
+          <Animated.View entering={FadeInDown.duration(500).delay(350)}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+              <Icon name="Lightbulb" size={20} color={Palette.tealDark} />
+              <Text style={[styles.sectionTitle, { marginTop: 0, marginBottom: 0 }]}>Recommendations</Text>
+            </View>
+            {recommendations.map((rec) => (
+              <RecommendationCard
+                key={rec.id}
+                recommendation={rec}
+                onDismiss={dismissRecommendation}
+              />
+            ))}
+          </Animated.View>
+        )}
+
         {/* Privacy */}
         <Animated.View entering={FadeInDown.duration(500).delay(400)}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
@@ -381,6 +433,24 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.xs,
     color: '#E67E22',
     fontWeight: Typography.weight.bold,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  nameInput: {
+    flex: 1,
+    fontSize: Typography.size.xl,
+    fontWeight: Typography.weight.bold,
+    color: Palette.tealDark,
+    borderBottomWidth: 1.5,
+    borderBottomColor: Palette.tealDark,
+    paddingVertical: 2,
+  },
+  nameSaveBtn: {
+    padding: 4,
   },
   quickStats: {
     flexDirection: 'row',

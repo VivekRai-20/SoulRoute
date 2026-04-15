@@ -7,6 +7,7 @@
  */
 
 import { NativeModules, Platform } from 'react-native';
+import type { AppUsage, NotificationData, WeeklyTrend, FatigueLevel } from '@/types';
 
 const { DigitalWellbeing } = NativeModules;
 
@@ -161,6 +162,15 @@ export async function saveBlockedApps(packages: string[]): Promise<boolean> {
 }
 
 /**
+ * Returns diagnostic info for the notification service.
+ */
+export async function getNotificationDebugInfo(): Promise<any> {
+  if (!isModuleAvailable()) return null;
+  return await DigitalWellbeing.getNotificationDebugInfo();
+}
+
+
+/**
  * Returns a list of all user-installed applications (package + name).
  */
 export async function getAllApps(): Promise<{ packageName: string; appName: string }[]> {
@@ -244,6 +254,47 @@ export async function getOverlayPermissionState(): Promise<boolean> {
 export function openOverlaySettings(): void {
   if (!isModuleAvailable()) return;
   DigitalWellbeing.openOverlaySettings();
+}
+
+/**
+ * Nudges the OS to re-bind the Notification Listener.
+ */
+export function requestRebind(): void {
+  if (!isModuleAvailable()) return;
+  DigitalWellbeing.requestRebind();
+}
+
+/**
+ * Computes a 0-100 fatigue score based on behavioral signals.
+ */
+export function computeFatigueScore(
+  screenTimeMs: number,
+  unlocks: number,
+  notifCount: number,
+  nightMs: number,
+  goalMs: number
+) {
+  // Score factors (max 100 total)
+  const screenFactor = Math.min(35, Math.round((screenTimeMs / (6 * 3600000)) * 35));
+  const unlockFactor = Math.min(20, Math.round((unlocks / 100) * 20));
+  const notifFactor = Math.min(25, Math.round((notifCount / 200) * 25));
+  const nightFactor = Math.min(20, Math.round((nightMs / (30 * 60000)) * 20));
+
+  const score = screenFactor + unlockFactor + notifFactor + nightFactor;
+  const level = (
+    score < 30 ? 'low' : score < 55 ? 'medium' : score < 75 ? 'high' : 'critical'
+  ) as FatigueLevel;
+
+  return {
+    score,
+    level,
+    breakdown: {
+      screenTimeFactor: screenFactor,
+      unlockFactor,
+      notificationFactor: notifFactor,
+      nightUsageFactor: nightFactor,
+    },
+  };
 }
 
 // ─── Expo Go guard ────────────────────────────────────────────────────────────

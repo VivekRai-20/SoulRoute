@@ -71,3 +71,44 @@ export interface CategoryBreakdown {
   percentage: number;
   color: string;
 }
+
+// ─── New Models ───────────────────────────────────────────────────────────────
+
+export interface MoodLogEntry {
+  date: string; // ISO timestamp
+  value: Mood;
+  label: string;
+  note?: string;
+}
+
+export interface FocusSession {
+  startTime: string; // ISO timestamp
+  durationMinutes: number;
+  completed: boolean;
+  blockedApps: string[];
+}
+
+export interface StreakData {
+  currentStreak: number;
+  longestStreak: number;
+  lastActiveDate: string | null; // toDateString() format
+  totalXP: number;
+}
+
+export interface OnboardingState {
+  complete: boolean;
+  startDate: string | null; // ISO timestamp — when tracking began
+  permissionsGranted: boolean;
+}
+
+export type RecommendationSeverity = 'low' | 'medium' | 'high';
+
+export interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  iconName: string;
+  severity: RecommendationSeverity;
+  actionLabel?: string;
+  category: 'screentime' | 'sleep' | 'focus' | 'social' | 'notification';
+}

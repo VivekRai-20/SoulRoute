@@ -44,12 +44,11 @@ type TabKey = 'screentime' | 'apps' | 'notifications';
 export default function AnalyticsScreen() {
   const { 
     weeklyTrend, 
+    userStats,
     categoryBreakdown, 
     notifications, 
     loading, 
-    isUsingMockData, 
     permissions, 
-    isNotificationServiceActive,
     openNotificationSettings,
     openUsageSettings,
     refreshAll
@@ -57,10 +56,21 @@ export default function AnalyticsScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('screentime');
 
   const trendLabels = weeklyTrend.map((d) => d.date);
-  const screenTimeHours = weeklyTrend.map((d) =>
-    parseFloat((d.screenTimeMs / 3600000).toFixed(1))
-  );
-  const unlockData = weeklyTrend.map((d) => d.unlockCount);
+  
+  const screenTimeHours = weeklyTrend.map((d, idx) => {
+    // For the last index (Today), use live stats if available to ensure "Live" graph
+    if (idx === weeklyTrend.length - 1 && userStats) {
+      return parseFloat((userStats.totalScreenTimeMs / 3600000).toFixed(1));
+    }
+    return parseFloat((d.screenTimeMs / 3600000).toFixed(1));
+  });
+
+  const unlockData = weeklyTrend.map((d, idx) => {
+    if (idx === weeklyTrend.length - 1 && userStats) {
+      return userStats.unlockCount;
+    }
+    return d.unlockCount;
+  });
   
   const hasUsageData = screenTimeHours.some(h => h > 0);
   const hasNotifData = notifications.length > 0 || weeklyTrend.some(d => d.notificationCount > 0);
@@ -101,7 +111,8 @@ export default function AnalyticsScreen() {
 
     // Check specific permissions per tab
     const isMissingUsage = !permissions.usageAccess;
-    const isMissingNotif = !permissions.notificationAccess || !isNotificationServiceActive;
+    const isMissingNotif = !permissions.notificationAccess;
+
 
     if ((activeTab === 'screentime' && !hasUsageData) || 
         (activeTab === 'apps' && categoryBreakdown.length === 0) ||
@@ -311,19 +322,21 @@ export default function AnalyticsScreen() {
               </View>
               <BarChart
                 data={{
-                  labels: notifBarData.labels.length ? notifBarData.labels : ['-'],
+                  labels: notifBarData.labels.length ? notifBarData.labels : [''],
                   datasets: notifBarData.datasets
                 }}
                 width={CHART_WIDTH}
                 height={220}
                 chartConfig={{
                   ...CHART_CONFIG,
-                  color: (opacity = 1) => `rgba(142, 68, 173, ${opacity})`,
-                  barPercentage: 0.6,
+                  backgroundGradientFrom: '#FFFFFF',
+                  backgroundGradientTo: '#F5F3FF', // Light purple tint
+                  color: (opacity = 1) => `rgba(139, 92, 246, ${opacity})`, // Vibrant Purple 500
+                  barPercentage: 0.7,
                 }}
                 style={styles.chart}
                 showValuesOnTopOfBars
-                withInnerLines
+                withInnerLines={false}
                 fromZero
                 yAxisLabel=""
                 yAxisSuffix=""

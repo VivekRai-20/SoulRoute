@@ -1,4 +1,4 @@
-package com.anonymous.mywellbeingapp;
+package com.soulroute.services;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -28,27 +28,23 @@ public class SoulRouteNotificationService extends NotificationListenerService {
     private static final String PREFS_NAME = "SoulRouteNotifications";
     private static final String CHANNEL_ID = "SoulRoute_Service_Channel";
     
-    // Tracks the last app that sent a notification for debugging
     private static String sLastPkg = "none";
     private static volatile boolean sIsConnected = false;
 
-    // In-memory cache for the current session
     private static final java.util.concurrent.ConcurrentHashMap<String, Integer> sessionCounts =
             new java.util.concurrent.ConcurrentHashMap<>();
 
-    // ─── Lifecycle ─────────────────────────────────────────────────────────────
-
-    /**
-     * Scans existing unread notifications in the status bar and counts them.
-     */
     private void scanExistingNotifications() {
         try {
             StatusBarNotification[] active = getActiveNotifications();
             if (active != null) {
+                Log.d(TAG, "Initial scan starting: found " + active.length + " unread notifications");
                 for (StatusBarNotification sbn : active) {
                     onNotificationPosted(sbn);
                 }
-                Log.d(TAG, "Initial scan completed: found " + active.length + " unread notifications");
+                Log.d(TAG, "Initial scan completed.");
+            } else {
+                Log.d(TAG, "Initial scan: No active notifications found.");
             }
         } catch (Exception e) {
             Log.e(TAG, "Failed to scan existing notifications: " + e.getMessage());
@@ -61,11 +57,8 @@ public class SoulRouteNotificationService extends NotificationListenerService {
         sIsConnected = true;
         Log.d(TAG, "Notification listener connected successfully");
         
-        // Notify the user that we are now tracking (Xiaomi context)
         createNotificationChannel();
         showServiceActiveNotification();
-
-        // Scan existing notifications so count is not 0
         scanExistingNotifications();
     }
 
@@ -105,63 +98,55 @@ public class SoulRouteNotificationService extends NotificationListenerService {
         Log.d(TAG, "Notification listener disconnected");
     }
 
-    // ─── Notification events ───────────────────────────────────────────────────
-
     @Override
     public void onNotificationPosted(StatusBarNotification sbn) {
         if (sbn == null) return;
         String pkg = sbn.getPackageName();
-        if (pkg != null && !pkg.equals(getPackageName())) {
-            sLastPkg = pkg;
-            // Update session cache
-            sessionCounts.merge(pkg, 1, Integer::sum);
-            
-            // Update persistent storage
-            persistNotification(pkg);
-            
-            Log.d(TAG, "Notification received from app: " + pkg + ". Total Session Count: " + sessionCounts.get(pkg));
-        } else if (pkg != null) {
-            Log.d(TAG, "Ignored self-notification or null pkg");
+        if (pkg == null || pkg.equals(getPackageName())) return;
+
+        if (sbn.isOngoing()) {
+            return;
         }
+
+        if (sbn.getNotification() != null && (sbn.getNotification().flags & android.app.Notification.FLAG_GROUP_SUMMARY) != 0) {
+            return;
+        }
+
+        sLastPkg = pkg;
+        sessionCounts.merge(pkg, 1, Integer::sum);
+        persistNotification(pkg);
     }
 
     private void persistNotification(String pkg) {
-        String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        
-        // Save per-app total (for today)
-        String appKey = "count_" + today + "_" + pkg;
-        int currentAppCount = prefs.getInt(appKey, 0);
-        editor.putInt(appKey, currentAppCount + 1);
+        try {
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            
+            String appKey = "count_" + today + "_" + pkg;
+            int currentAppCount = prefs.getInt(appKey, 0);
+            editor.putInt(appKey, currentAppCount + 1);
 
-        // Save total for day (shortcut for the bar chart)
-        String dayKey = "total_" + today;
-        int currentDayTotal = prefs.getInt(dayKey, 0);
-        editor.putInt(dayKey, currentDayTotal + 1);
-        
-        // Single atomic write instead of two separate .apply() calls
-        editor.apply();
+            String dayKey = "total_" + today;
+            int currentDayTotal = prefs.getInt(dayKey, 0);
+            editor.putInt(dayKey, currentDayTotal + 1);
+            
+            editor.apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to persist notification for " + pkg + ": " + e.getMessage());
+        }
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn) {
-        // Track totals received only
     }
 
-    // ─── Public static API ───────────────────────────────────────────────────
-
     public static Map<String, Integer> getCounts(Context context) {
-        // Merge SharedPreferences (persisted) + sessionCounts (in-memory, current process).
-        // SharedPreferences is the source of truth (survives restarts); session cache
-        // may have newer counts for the live process. We take the higher of the two
-        // per package to avoid double-counting while ensuring nothing is lost.
         String today = new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date());
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         Map<String, ?> allEntries = prefs.getAll();
         Map<String, Integer> todayCounts = new HashMap<>();
 
-        // 1. Load from SharedPreferences
         String prefix = "count_" + today + "_";
         for (Map.Entry<String, ?> entry : allEntries.entrySet()) {
             if (entry.getKey().startsWith(prefix)) {
@@ -171,15 +156,6 @@ public class SoulRouteNotificationService extends NotificationListenerService {
                 }
             }
         }
-
-        // 2. Merge in-memory session counts (take max to avoid double-counting)
-        for (Map.Entry<String, Integer> entry : sessionCounts.entrySet()) {
-            String pkg = entry.getKey();
-            int sessionVal = entry.getValue();
-            int storedVal  = todayCounts.containsKey(pkg) ? todayCounts.get(pkg) : 0;
-            todayCounts.put(pkg, Math.max(storedVal, sessionVal));
-        }
-
         return todayCounts;
     }
 
@@ -194,10 +170,6 @@ public class SoulRouteNotificationService extends NotificationListenerService {
         prefs.edit().clear().apply();
     }
 
-    /**
-     * Returns true only when the OS has actually bound this listener.
-     * The flag is set in onListenerConnected / onListenerDisconnected.
-     */
     public static boolean isServiceActive() {
         return sIsConnected;
     }

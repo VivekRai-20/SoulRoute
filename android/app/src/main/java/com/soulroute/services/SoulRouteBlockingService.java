@@ -1,4 +1,4 @@
-package com.anonymous.mywellbeingapp;
+package com.soulroute.services;
 
 import android.app.Notification;
 import android.app.NotificationChannel;
@@ -20,13 +20,13 @@ import androidx.core.app.NotificationCompat;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
 import android.view.Gravity;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import java.util.HashSet;
 import java.util.Set;
+import com.soulroute.MainActivity;
 
 public class SoulRouteBlockingService extends Service {
     private static final String TAG = "SoulRouteBlockSvc";
@@ -99,7 +99,6 @@ public class SoulRouteBlockingService extends Service {
             if (blockedPackages.contains(lastPackage)) {
                 showOverlay();
             } else {
-                // If it's a safe app (soulroute or launcher), hide the block screen
                 hideOverlay();
             }
         }
@@ -126,7 +125,7 @@ public class SoulRouteBlockingService extends Service {
                     params.gravity = Gravity.CENTER;
 
                     LinearLayout layout = new LinearLayout(SoulRouteBlockingService.this);
-                    layout.setBackgroundColor(Color.parseColor("#E0F2F1")); // Teal 50
+                    layout.setBackgroundColor(Color.parseColor("#E0F2F1"));
                     layout.setOrientation(LinearLayout.VERTICAL);
                     layout.setGravity(Gravity.CENTER);
                     layout.setPadding(40, 40, 40, 40);
@@ -134,13 +133,13 @@ public class SoulRouteBlockingService extends Service {
                     TextView title = new TextView(SoulRouteBlockingService.this);
                     title.setText("Focus Mode Active");
                     title.setTextSize(26);
-                    title.setTextColor(Color.parseColor("#004D40")); // Teal 900
+                    title.setTextColor(Color.parseColor("#004D40"));
                     title.setGravity(Gravity.CENTER);
 
                     TextView sub = new TextView(SoulRouteBlockingService.this);
                     sub.setText("\nThis app is currently restricted.\nReturn to SoulRoute to finish your session.");
                     sub.setTextSize(16);
-                    sub.setTextColor(Color.parseColor("#00796B")); // Teal 700
+                    sub.setTextColor(Color.parseColor("#00796B"));
                     sub.setGravity(Gravity.CENTER);
 
                     layout.addView(title);

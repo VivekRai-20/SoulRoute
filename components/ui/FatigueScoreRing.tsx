@@ -1,149 +1,115 @@
+/**
+ * components/ui/FatigueScoreRing.tsx
+ *
+ * SVG arc-based animated fatigue ring.
+ * Uses react-native-svg + react-native-reanimated for smooth fill animation.
+ *
+ * Reanimated strict-mode safe: all .value writes are inside useEffect.
+ */
+
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
-  useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
-  withDelay,
   Easing,
+  FadeIn,
 } from 'react-native-reanimated';
-import type { FatigueLevel } from '@/types';
 import { Typography } from '@/constants/Theme';
+import type { FatigueLevel } from '@/types';
 
-const SIZE = 180;
-const STROKE = 14;
-const RADIUS = (SIZE - STROKE) / 2;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-const LEVEL_COLORS: Record<FatigueLevel, string> = {
-  low: '#4CAF50',
-  medium: '#FFC107',
-  high: '#FF9800',
-  critical: '#F44336',
+const LEVEL_COLORS: Record<FatigueLevel, { stroke: string; text: string; label: string }> = {
+  low:      { stroke: '#4CAF50', text: '#2E7D32', label: 'Low' },
+  medium:   { stroke: '#FF9800', text: '#E65100', label: 'Moderate' },
+  high:     { stroke: '#FF5722', text: '#BF360C', label: 'High' },
+  critical: { stroke: '#F44336', text: '#B71C1C', label: 'Critical' },
 };
 
-const LEVEL_LABELS: Record<FatigueLevel, string> = {
-  low: 'Low Fatigue',
-  medium: 'Moderate',
-  high: 'High Fatigue',
-  critical: 'Critical!',
-};
-
-interface FatigueScoreRingProps {
-  score: number; // 0–100
+interface Props {
+  score: number;       // 0–100
   level: FatigueLevel;
+  size?: number;
 }
 
-export function FatigueScoreRing({ score, level }: FatigueScoreRingProps) {
-  const color = LEVEL_COLORS[level];
-  const label = LEVEL_LABELS[level];
+export function FatigueScoreRing({ score, level, size = 120 }: Props) {
+  const cfg = LEVEL_COLORS[level];
+  const radius = (size - 16) / 2;
+  const circumference = 2 * Math.PI * radius;
 
-  // Animated arc width using translation trick (SVG not available without expo-svg)
-  // We use a View-based arc approximation with rotation
-
-  const arcProgress = useSharedValue(0);
+  // Start at 0, animate to score/100
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    arcProgress.value = withDelay(
-      200,
-      withTiming(score / 100, { duration: 1200, easing: Easing.out(Easing.cubic) })
-    );
+    progress.value = withTiming(score / 100, {
+      duration: 1200,
+      easing: Easing.out(Easing.cubic),
+    });
   }, [score]);
 
-  const arcStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${arcProgress.value * 270 - 135}deg` }],
+  const animatedProps = useAnimatedProps(() => ({
+    strokeDashoffset: circumference * (1 - progress.value),
   }));
-
-  // Track arc (fill arc simulated via clipped View rotation)
-  const fillStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${arcProgress.value * 270 - 135}deg` }],
-    opacity: withTiming(arcProgress.value > 0 ? 1 : 0, { duration: 300 }),
-  }));
-
-  const scoreAnim = useSharedValue(0);
-  useEffect(() => {
-    scoreAnim.value = withDelay(
-      300,
-      withTiming(score, { duration: 1000, easing: Easing.out(Easing.cubic) })
-    );
-  }, [score]);
 
   return (
-    <View style={styles.container}>
-      {/* Background ring */}
-      <View style={[styles.ring, { borderColor: '#E0E0E0' }]}>
-        {/* Colored fill ring */}
-        <View
-          style={[
-            styles.fillRing,
-            {
-              borderColor: color,
-              borderTopColor: 'transparent',
-              borderBottomColor: 'transparent',
-              borderLeftColor: 'transparent',
-            },
-          ]}
+    <View style={[styles.wrap, { width: size, height: size }]}>
+      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {/* Track */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke="#E0EDE5"
+          strokeWidth={10}
+          fill="none"
+          strokeLinecap="round"
         />
-        {/* Center content */}
-        <View style={styles.center}>
-          <Text style={[styles.scoreNum, { color }]}>{score}</Text>
-          <Text style={styles.scoreLabel}>/ 100</Text>
-          <View style={[styles.badge, { backgroundColor: color + '22' }]}>
-            <Text style={[styles.badgeText, { color }]}>{label}</Text>
-          </View>
-        </View>
-      </View>
+        {/* Progress arc */}
+        <AnimatedCircle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={cfg.stroke}
+          strokeWidth={10}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${circumference} ${circumference}`}
+          animatedProps={animatedProps}
+          transform={`rotate(-90, ${size / 2}, ${size / 2})`}
+        />
+      </Svg>
+
+      {/* Label inside ring — use FadeIn layout animation instead of shared value scale */}
+      <Animated.View style={styles.center} entering={FadeIn.duration(600).delay(300)}>
+        <Text style={[styles.score, { color: cfg.text }]}>{score}</Text>
+        <Text style={[styles.level, { color: cfg.stroke }]}>{cfg.label}</Text>
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    width: SIZE,
-    height: SIZE,
-    borderRadius: SIZE / 2,
-    borderWidth: STROKE,
-    borderColor: '#E0E0E0',
+  wrap: {
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  fillRing: {
-    position: 'absolute',
-    width: SIZE,
-    height: SIZE,
-    borderRadius: SIZE / 2,
-    borderWidth: STROKE,
-    borderColor: '#4CAF50',
-  },
   center: {
+    position: 'absolute',
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  scoreNum: {
-    fontSize: 42,
-    fontWeight: '800',
-    lineHeight: 46,
+  score: {
+    fontSize: Typography.size['2xl'],
+    fontWeight: Typography.weight.extrabold,
+    lineHeight: 30,
   },
-  scoreLabel: {
-    fontSize: 14,
-    color: '#9AB0A8',
-    fontWeight: '500',
-  },
-  badge: {
-    marginTop: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 20,
-  },
-  badgeText: {
-    fontSize: 11,
+  level: {
+    fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
 });
