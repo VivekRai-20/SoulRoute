@@ -4,7 +4,7 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
   Platform,
   StatusBar,
@@ -136,21 +136,21 @@ export default function AnalyticsScreen() {
           </Text>
           
           {showUsagePrompt && (
-            <TouchableOpacity style={styles.actionBtn} onPress={openUsageSettings}>
+            <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}} style={styles.actionBtn} onPress={openUsageSettings}>
               <Text style={styles.actionBtnText}>Grant Usage Access</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {showNotifPrompt && (
-            <TouchableOpacity style={styles.actionBtn} onPress={openNotificationSettings}>
+            <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}} style={styles.actionBtn} onPress={openNotificationSettings}>
               <Text style={styles.actionBtnText}>Grant Notification Access</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {!showUsagePrompt && !showNotifPrompt && (
-            <TouchableOpacity style={[styles.actionBtn, {backgroundColor: Palette.mint}]} onPress={refreshAll}>
+            <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}} style={[styles.actionBtn, {backgroundColor: Palette.mint}]} onPress={refreshAll}>
               <Text style={styles.actionBtnText}>Refresh Data</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       );
@@ -387,7 +387,7 @@ export default function AnalyticsScreen() {
       {/* Tab selector */}
       <View style={styles.tabRow}>
         {TABS.map((tab) => (
-          <TouchableOpacity
+          <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
             key={tab.key}
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
             onPress={() => setActiveTab(tab.key)}
@@ -406,7 +406,7 @@ export default function AnalyticsScreen() {
             >
               {tab.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
 

@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform, Text, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Palette } from '@/constants/Theme';
 import { Icon, IconName } from '@/components/ui/Icon';
 
@@ -47,10 +47,17 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="analytics"
+        name="explore"
         options={{
-          title: 'Analytics',
-          tabBarIcon: ({ focused }) => <TabIcon name="BarChart2" focused={focused} />,
+          title: 'Resources',
+          tabBarIcon: ({ focused }) => <TabIcon name="BookOpen" focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="wellness"
+        options={{
+          title: 'Wellness',
+          tabBarIcon: ({ focused }) => <TabIcon name="Heart" focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -61,28 +68,16 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="sleep"
-        options={{
-          title: 'Sleep',
-          tabBarIcon: ({ focused }) => <TabIcon name="Moon" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="summary"
-        options={{
-          title: 'Summary',
-          tabBarIcon: ({ focused }) => <TabIcon name="ClipboardList" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ focused }) => <TabIcon name="User" focused={focused} />,
         }}
       />
-      {/* Hide legacy explore tab */}
-      <Tabs.Screen name="explore" options={{ href: null }} />
+      {/* Hidden tabs — content moved to Profile */}
+      <Tabs.Screen name="analytics" options={{ href: null }} />
+      <Tabs.Screen name="sleep" options={{ href: null }} />
+      <Tabs.Screen name="summary" options={{ href: null }} />
     </Tabs>
   );
 }

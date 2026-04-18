@@ -7,7 +7,7 @@
 
 import React, { useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, StatusBar,
+  View, Text, Pressable, StyleSheet, ScrollView, StatusBar,
   TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -92,7 +92,7 @@ export default function BaselineScreen() {
               </Text>
               <View style={styles.goalRow}>
                 {GOAL_OPTIONS.map((opt) => (
-                  <TouchableOpacity
+                  <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
                     key={opt.hours}
                     style={[styles.goalChip, selectedGoalHours === opt.hours && styles.goalChipActive]}
                     onPress={() => setSelectedGoalHours(opt.hours)}
@@ -102,7 +102,7 @@ export default function BaselineScreen() {
                       {opt.label}
                     </Text>
                     <Text style={styles.goalDesc}>{opt.desc}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             </Animated.View>
@@ -137,7 +137,7 @@ export default function BaselineScreen() {
 
         {/* Sticky CTA */}
         <Animated.View entering={FadeInDown.duration(500).delay(500)} style={styles.footer}>
-          <TouchableOpacity
+          <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
             style={[styles.cta, loading && styles.ctaLoading]}
             onPress={handleStart}
             disabled={loading}
@@ -150,7 +150,7 @@ export default function BaselineScreen() {
                 <Icon name="ArrowRight" size={20} color="#fff" strokeWidth={2.5} />
               </>
             )}
-          </TouchableOpacity>
+          </Pressable>
         </Animated.View>
       </View>
     </KeyboardAvoidingView>

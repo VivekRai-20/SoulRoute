@@ -6,7 +6,7 @@
 
 import React, { useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, StatusBar, Dimensions,
+  View, Text, Pressable, StyleSheet, StatusBar, Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import Animated, {
@@ -76,14 +76,14 @@ export default function WelcomeScreen() {
         entering={FadeInDown.duration(600).delay(800)}
         style={styles.ctaWrap}
       >
-        <TouchableOpacity
+        <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
           style={styles.cta}
           onPress={() => router.push('/onboarding/permissions' as any)}
-          activeOpacity={0.85}
+         
         >
           <Text style={styles.ctaText}>Begin Your Journey</Text>
           <Icon name="ArrowRight" size={20} color="#FFFFFF" strokeWidth={2.5} />
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.privacyNote}>
           🔒 No account required · 100% private
         </Text>

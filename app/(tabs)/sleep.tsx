@@ -4,7 +4,7 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Switch,
   Platform,
   StatusBar,
@@ -225,13 +225,13 @@ export default function SleepScreen() {
               <View style={styles.bedtimePicker}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.timeScroll}>
                   {BEDTIMES.map((bt) => (
-                    <TouchableOpacity
+                    <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
                       key={bt}
                       style={[styles.timeChip, bedtime === bt && styles.timeChipActive]}
                       onPress={() => handleBedtimeChange(bt)}
                     >
                       <Text style={[styles.timeChipText, bedtime === bt && styles.timeChipTextActive]}>{bt}</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   ))}
                 </ScrollView>
               </View>
@@ -255,9 +255,9 @@ export default function SleepScreen() {
                  <Text style={styles.statusText}>Committed for tonight</Text>
                </View>
             ) : (
-              <TouchableOpacity style={styles.acceptBtn} onPress={handleAcceptChallenge}>
+              <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}} style={styles.acceptBtn} onPress={handleAcceptChallenge}>
                 <Text style={styles.acceptBtnText}>Accept Challenge</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
            </GradientCard>
         </Animated.View>

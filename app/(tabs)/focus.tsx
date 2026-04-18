@@ -104,8 +104,80 @@ export default function FocusScreen() {
   const totalSeconds = selectedDuration * 60;
   const progress = secondsLeft / totalSeconds;
 
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (running) {
+      intervalRef.current = setInterval(() => {
+        setSecondsLeft((prev) => {
+          if (prev <= 1) {
+            clearInterval(intervalRef.current!);
+            completeSession();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      pulseScale.value = withRepeat(withSequence(withTiming(1.03, { duration: 1500 }), withTiming(1, { duration: 1500 })), -1);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      pulseScale.value = withTiming(1);
+    }
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  }, [running]);
+
+  const completeSession = () => {
+    setRunning(false);
+    setFocusMode(false);
+    if (sessionStartTime) {
+      saveSession({
+        startTime: sessionStartTime,
+        durationMinutes: selectedDuration,
+        completed: true,
+        blockedApps: Array.from(blockedPackages),
+      });
+      addXP(5);
+    }
+    Alert.alert('🎉 Focus Session Complete!', 'Great job!');
+  };
+
+  const handleStart = async () => {
+    if (secondsLeft === 0) setSecondsLeft(selectedDuration * 60);
+    try {
+      await saveBlockedApps(Array.from(blockedPackages));
+      await startFocusBlocking();
+      setSessionStartTime(new Date().toISOString());
+      setRunning(true);
+      setFocusMode(true);
+    } catch (e) {
+      Alert.alert('Error', 'Failed to start blocking service.');
+    }
+  };
+
+  const handlePause = async () => {
+    await stopFocusBlocking();
+    setRunning(false);
+    setFocusMode(false);
+  };
+
+  const handleReset = async () => {
+    await stopFocusBlocking();
+    setRunning(false);
+    setFocusMode(false);
+    setSecondsLeft(selectedDuration * 60);
+  };
+
+  const toggleBlock = useCallback((pkg: string) => {
+    setBlockedPackages((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg)) next.delete(pkg);
+      else next.add(pkg);
+      return next;
+    });
+  }, []);
+
   // Header Component for FlatList
-  const ListHeader = () => (
+  const listHeaderNode = (
     <View>
       <Animated.View entering={FadeInDown.duration(500)}>
         <View style={styles.header}>
@@ -198,7 +270,7 @@ export default function FocusScreen() {
   );
 
   // Footer Component for FlatList
-  const ListFooter = () => (
+  const listFooterNode = (
     <View style={{ paddingBottom: 40 }}>
       {allApps.length === 0 && !showAllApps && (
         <TouchableOpacity 
@@ -234,77 +306,7 @@ export default function FocusScreen() {
     </View>
   );
 
-  // ─── Handlers ───────────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (running) {
-      intervalRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current!);
-            completeSession();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      pulseScale.value = withRepeat(withSequence(withTiming(1.03, { duration: 1500 }), withTiming(1, { duration: 1500 })), -1);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      pulseScale.value = withTiming(1);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running]);
-
-  const completeSession = () => {
-    setRunning(false);
-    setFocusMode(false);
-    if (sessionStartTime) {
-      saveSession({
-        startTime: sessionStartTime,
-        durationMinutes: selectedDuration,
-        completed: true,
-        blockedApps: Array.from(blockedPackages),
-      });
-      addXP(5);
-    }
-    Alert.alert('🎉 Focus Session Complete!', 'Great job!');
-  };
-
-  const handleStart = async () => {
-    if (secondsLeft === 0) setSecondsLeft(selectedDuration * 60);
-    try {
-      await saveBlockedApps(Array.from(blockedPackages));
-      await startFocusBlocking();
-      setSessionStartTime(new Date().toISOString());
-      setRunning(true);
-      setFocusMode(true);
-    } catch (e) {
-      Alert.alert('Error', 'Failed to start blocking service.');
-    }
-  };
-
-  const handlePause = async () => {
-    await stopFocusBlocking();
-    setRunning(false);
-    setFocusMode(false);
-  };
-
-  const handleReset = async () => {
-    await stopFocusBlocking();
-    setRunning(false);
-    setFocusMode(false);
-    setSecondsLeft(selectedDuration * 60);
-  };
-
-  const toggleBlock = useCallback((pkg: string) => {
-    setBlockedPackages((prev) => {
-      const next = new Set(prev);
-      if (next.has(pkg)) next.delete(pkg);
-      else next.add(pkg);
-      return next;
-    });
-  }, []);
 
   const pulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulseScale.value }],
@@ -340,8 +342,8 @@ export default function FocusScreen() {
         data={visibleApps}
         keyExtractor={(item) => item.packageName}
         renderItem={renderApp}
-        ListHeaderComponent={ListHeader}
-        ListFooterComponent={ListFooter}
+        ListHeaderComponent={listHeaderNode}
+        ListFooterComponent={listFooterNode}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}

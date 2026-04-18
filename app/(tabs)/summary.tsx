@@ -7,7 +7,7 @@
 
 import React from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform, StatusBar,
+  View, Text, ScrollView, StyleSheet, Pressable, Platform, StatusBar,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Icon, IconName } from '@/components/ui/Icon';

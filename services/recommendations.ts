@@ -75,7 +75,7 @@ export function generateRecommendations(
       id: 'night_critical',
       title: 'Late-night screen exposure',
       description: `${nightMin} minutes of phone use after 10 PM detected. Blue light and stimulation seriously disrupt your sleep cycle.`,
-      iconName: 'MoonOff',
+      iconName: 'Moon',
       severity: 'high',
       actionLabel: 'Enable bedtime mode',
       category: 'sleep',

@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, ScrollView, StatusBar,
+  View, Text, Pressable, StyleSheet, ScrollView, StatusBar,
 } from 'react-native';
 import { router } from 'expo-router';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -124,12 +124,12 @@ export default function PermissionsScreen() {
                       <Text style={styles.grantedText}>Granted</Text>
                     </View>
                   ) : (
-                    <TouchableOpacity
+                    <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
                       style={styles.grantBtn}
                       onPress={item.onGrant}
                     >
                       <Text style={styles.grantBtnText}>Grant</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   )}
                 </View>
                 <View style={styles.whyWrap}>
@@ -154,7 +154,7 @@ export default function PermissionsScreen() {
 
       {/* CTA */}
       <Animated.View entering={FadeInDown.duration(500).delay(600)} style={styles.footer}>
-        <TouchableOpacity
+        <Pressable android_ripple={{color: 'rgba(0,0,0,0.08)'}}
           style={[styles.cta, !atLeastOne && styles.ctaDisabled]}
           onPress={handleContinue}
           disabled={checking}
@@ -162,7 +162,7 @@ export default function PermissionsScreen() {
           <Text style={styles.ctaText}>
             {allGranted ? 'Continue →' : atLeastOne ? 'Continue Anyway →' : 'Skip for now →'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
         {!allGranted && (
           <Text style={styles.skipNote}>
             You can grant permissions later in Settings → Profile
